@@ -56,13 +56,12 @@ def is_ipv4(ip: str) -> bool:
 def cv2_video_capture(ip, password, client):
     """
 
-    :param ip:
-    :param password:
-    :param client:
+    :param ip:摄像头IP地址
+    :param password:摄像头密码
+    :param client: 摄像头类型，这里是hik和dahua
     :return:
     """
-    # print("要下载的摄像头的ip和password:", ip, password)
-
+    #判断rtsp协议的554有没有打开。
     if not portisopen(ip, 554):
         print(f"{ip} 554 端口没有打开")
         return -1
@@ -85,7 +84,7 @@ def cv2_video_capture(ip, password, client):
     if cam.isOpened():
         ret, frame = cam.read()
         try:
-            file_name = ip + '_' + password + '_' + client + "_rstp_" + str_time
+            file_name = ip + '_' + password + '_' + client + "_rtsp_" + str_time
             cv2.imwrite('./{}/{}.jpg'.format(pic_dic, file_name), frame,
                         [int(cv2.IMWRITE_JPEG_QUALITY), 95])
             print(f"ip：{ip}下载完成")
@@ -100,13 +99,15 @@ def cv2_video_capture(ip, password, client):
 
 
 if __name__ == '__main__':
+    #包含ip和密码的csv文件
+    csv_file =r'xxx.csv'
     result = []
     futures = []
     with ThreadPoolExecutor(10) as executor:
-        with open('./csv/shixunlou.csv') as fp:
+        with open(csv_file) as fp:
             csv_reader = csv.reader(fp)
             for ip, passwd in csv_reader:
-                # video_capture_cv2(ip, passwd, 'dahua')
+
                 futures.append(executor.submit(cv2_video_capture, ip, passwd, 'dahua'))
         for future in as_completed(futures):
             result.append(future.result())
