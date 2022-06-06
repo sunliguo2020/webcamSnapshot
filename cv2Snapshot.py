@@ -99,14 +99,14 @@ def cv2_video_capture(ip, password, client):
 
 
 if __name__ == '__main__':
-    #包含ip和密码的csv文件
+    #前两列包含ip和密码的csv文件
     csv_file =r'xxx.csv'
     result = []
     futures = []
     with ThreadPoolExecutor(10) as executor:
         with open(csv_file) as fp:
             csv_reader = csv.reader(fp)
-            for ip, passwd in csv_reader:
+            for ip, passwd in csv_reader[:2]:
 
                 futures.append(executor.submit(cv2_video_capture, ip, passwd, 'dahua'))
         for future in as_completed(futures):

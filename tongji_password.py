@@ -14,7 +14,7 @@ import os
 import csv
 
 # 要统计的目录
-dir_name = '特教'
+dir_name = r'd:\监控截图\现代中学'
 
 with open("ip_pass.csv", 'w', newline='') as fp:
     csv_write = csv.writer(fp)
