@@ -92,9 +92,11 @@ def cv2_video_capture(ip, password, client):
             file_name = ip + '_' + password + '_' + client + "_rtsp_" + str_time
             cv2.imwrite('./{}/{}.jpg'.format(pic_dic, file_name), frame,
                         [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
             logging.info(f"ip：{ip}下载完成")
         except Exception as e:
-            print(traceback.format_exc())
+            logging.error(f"{ip}下载过程中错误！")
+            logging.error(f"{ip}"+traceback.format_exc())
         finally:
             cam.release()
             cv2.destroyAllWindows()
