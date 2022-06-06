@@ -8,6 +8,7 @@ import os
 import socket
 import time
 import traceback
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 
@@ -19,6 +20,10 @@ except Exception as e:
     os.system('pip install opencv-python')
     import cv2
 
+logging.basicConfig(filename='csv2.log',
+                    filemode='a',
+                    encoding='utf-8',
+                    level=logging.DEBUG)
 
 # python实战练手项目---使用socket探测主机开放的端口 | 酷python
 # http://www.coolpython.net/python_senior/miny_pro/find_open_port.html
@@ -63,7 +68,7 @@ def cv2_video_capture(ip, password, client):
     """
     #判断rtsp协议的554有没有打开。
     if not portisopen(ip, 554):
-        print(f"{ip} 554 端口没有打开")
+        logging.info(f"{ip} 554 端口没有打开")
         return -1
 
     # 保存截图的目录  运行程序的日期为目录名
@@ -78,7 +83,7 @@ def cv2_video_capture(ip, password, client):
     elif client == 'hik':
         cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(password, ip))
     else:
-        print("设备类型参数不正确")
+        logging.error("设备类型参数不正确")
         return -1
 
     if cam.isOpened():
@@ -87,7 +92,7 @@ def cv2_video_capture(ip, password, client):
             file_name = ip + '_' + password + '_' + client + "_rtsp_" + str_time
             cv2.imwrite('./{}/{}.jpg'.format(pic_dic, file_name), frame,
                         [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-            print(f"ip：{ip}下载完成")
+            logging.info(f"ip：{ip}下载完成")
         except Exception as e:
             print(traceback.format_exc())
         finally:
@@ -95,7 +100,7 @@ def cv2_video_capture(ip, password, client):
             cv2.destroyAllWindows()
 
     else:
-        print(f"打开摄像头{ip}失败！")
+        logging.error(f"打开摄像头{ip}失败！")
 
 
 if __name__ == '__main__':
