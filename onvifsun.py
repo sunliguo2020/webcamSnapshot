@@ -10,33 +10,32 @@ onvif抓图大致流程：
 3、返回的数据就是图片的数据，直接保存下来
 我的做法就是用onvif获取到抓图路径，然后用http直接下载下来即可
 """
-import socket
-import os
+
+import csv
 import logging
+import os
+import socket
 import time
 import requests
-import zeep
 from onvif import ONVIFCamera
 from requests.auth import HTTPDigestAuth
 
-import csv
-
-
-logging.basicConfig(filename='onvif.log',
-                    level=logging.DEBUG,
-                    filemode='w',
-                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+# logging.basicConfig(filename='onvif.log',
+#                     level=logging.DEBUG,
+#                     filemode='w',
+#                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 #
+
 # def zeep_pythonvalue(self, xmlvalue):
 #     return xmlvalue
 
 
-
-class Onvif_sun(object):
+class OnvifSun(object):
     """
 
     """
-    def __init__(self, ip, port=80, username="admin", password="admin",base_dir=''):
+
+    def __init__(self, ip, port=80, username="admin", password="admin", base_dir=''):
         self.ip = ip
         self.username = username
         self.password = password
@@ -54,7 +53,7 @@ class Onvif_sun(object):
 
         self.file_name = "./{}_{}_{}_onvif_{}.jpg". \
             format(self.ip, self.password, self.port, str_time)
-        self.save_path = os.path.join(base_dir,self.file_name)  # 截图保存路径
+        self.save_path = os.path.join(base_dir, self.file_name)  # 截图保存路径
 
     def portisopen(self, ip, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -97,9 +96,9 @@ class Onvif_sun(object):
         :return:
         """
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
-        print("response:")
+        # print("response:")
         response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password), timeout=1)
-        print(f'正在保存{self.ip}的截图')
+        logging.debug(f'正在保存{self.ip}的截图')
         with open(self.save_path, 'wb') as fp:  # 保存截图
             fp.write(response.content)
 
@@ -139,13 +138,14 @@ class Onvif_sun(object):
 
 
 if __name__ == "__main__":
-
+    logging.basicConfig(filename='onvif.log', level=logging.DEBUG)
+    base_dir = r'd:\监控截图'
     with open(r'd:\监控截图\csv_file\tejiao.csv') as fp:
         csv_reader = csv.reader(fp)
         for line in csv_reader:
             ip = line[0]
             port = 80
             logging.debug(ip)
-            onvif_test = Onvif_sun(ip,port,'admin','admin123')
+            onvif_test = OnvifSun(ip, port, 'admin', 'admin123',base_dir=base_dir)
             if onvif_test.content_cam():
                 onvif_test.Snapshot()
