@@ -11,7 +11,6 @@ import traceback
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
-
 import csv
 
 try:
@@ -20,10 +19,10 @@ except Exception as e:
     os.system('pip install opencv-python')
     import cv2
 
-logging.basicConfig(filename='csv2.log',
+logging.basicConfig(filename='cv2.log',
+                    level=logging.DEBUG,
                     filemode='a',
-                    encoding='utf-8',
-                    level=logging.DEBUG)
+                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
 # python实战练手项目---使用socket探测主机开放的端口 | 酷python
 # http://www.coolpython.net/python_senior/miny_pro/find_open_port.html
@@ -107,15 +106,18 @@ def cv2_video_capture(ip, password, client):
 
 if __name__ == '__main__':
     #前两列包含ip和密码的csv文件
-    csv_file =r'xxx.csv'
+    csv_file =r'C:\Users\sunliguo\Desktop\xiandai.csv'
+    client_type = 'dahua'
     result = []
     futures = []
     with ThreadPoolExecutor(10) as executor:
         with open(csv_file) as fp:
-            csv_reader = csv.reader(fp)
-            for ip, passwd in csv_reader[:2]:
 
-                futures.append(executor.submit(cv2_video_capture, ip, passwd, 'dahua'))
+            csv_reader = csv.reader(fp)
+
+            for line in csv_reader:
+                ip,passwd = line[:2]
+                futures.append(executor.submit(cv2_video_capture, ip, passwd, client_type))
         for future in as_completed(futures):
             result.append(future.result())
     print(result[:20])
