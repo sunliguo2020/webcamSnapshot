@@ -4,7 +4,7 @@
 @contact: QQ376440229
 @Created on: 2022/5/21 7:47
 """
-from onvif_sun import Onvif_sun
+from onvif_sun import OnvifSun
 import csv
 
 if __name__ == '__main__':
@@ -14,7 +14,7 @@ if __name__ == '__main__':
         for line in csv_reader:
             ip = line[0]
             port = 80
-            onvif_test = Onvif_sun(ip,port,'admin','admin123')
+            onvif_test = OnvifSun(ip, port, 'admin', 'admin123')
             if onvif_test.content_cam():
                 onvif_test.Snapshot()
 
