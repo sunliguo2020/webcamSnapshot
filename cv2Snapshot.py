@@ -125,9 +125,9 @@ def cv2_video_capture(ip, password, client=None, base_dir=''):
 
 if __name__ == '__main__':
     # 前两列包含ip和密码的csv文件
-    csv_file = r'd:\监控截图\csv_file\tejiao.csv'
+    csv_file = r'D:\监控截图\csv_file\yizhong.csv'
     base_dir = r'd:\监控截图'
-    client_type = 'dahua'
+    client_type = 'hik'
     result = []
     futures = []
     with ThreadPoolExecutor(10) as executor:
