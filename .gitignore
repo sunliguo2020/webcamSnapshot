@@ -3,5 +3,6 @@
 *.jpeg
 *.csv
 *.txt
-*log
+*.log
+.idea
 __pycache__
