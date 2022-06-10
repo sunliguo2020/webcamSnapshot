@@ -11,8 +11,13 @@ onvif抓图大致流程：
 我的做法就是用onvif获取到抓图路径，然后用http直接下载下来即可
 """
 
-import csv
 import logging
+
+logging.basicConfig(filename='onvif.log',
+                    level=logging.DEBUG,
+                    filemode='a',
+                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+import csv
 import os
 import socket
 import time
@@ -20,14 +25,12 @@ import requests
 from onvif import ONVIFCamera
 from requests.auth import HTTPDigestAuth
 
-# logging.basicConfig(filename='onvif.log',
-#                     level=logging.DEBUG,
-#                     filemode='w',
-#                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+
 #
 
 # def zeep_pythonvalue(self, xmlvalue):
 #     return xmlvalue
+
 
 
 class OnvifSun(object):
@@ -73,12 +76,12 @@ class OnvifSun(object):
         """
         flag = ""
         if not self.portisopen(self.ip, int(self.port)):
-            logging.info(f'{self.ip}:{self.port} 打开失败！')
+            logging.debug(f'{self.ip}:{self.port} 打开失败！')
             return False
         else:
             logging.debug(f'{self.ip}:{self.port} {self.password} 打开！')
         try:
-            logging.info("正在创建媒体")
+            logging.debug("正在创建媒体")
             self.mycam = ONVIFCamera(self.ip, self.port, self.username, self.password)
             self.media = self.mycam.create_media_service()  # 创建媒体服务
             self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
@@ -138,14 +141,20 @@ class OnvifSun(object):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename='onvif.log', level=logging.DEBUG)
+
+
     base_dir = r'd:\监控截图'
-    with open(r'd:\监控截图\csv_file\tejiao.csv') as fp:
+
+    row_count = 0
+
+    with open(r'C:\Users\sunliguo\Desktop\shijidongcheng-dv1.csv') as fp:
         csv_reader = csv.reader(fp)
         for line in csv_reader:
+            row_count +=1
             ip = line[0]
-            port = 80
-            logging.debug(ip)
-            onvif_test = OnvifSun(ip, port, 'admin', 'admin123',base_dir=base_dir)
+            port = line[1]
+            print(row_count,ip,port)
+
+            onvif_test = OnvifSun(ip, port, 'admin', '123456',base_dir=base_dir)
             if onvif_test.content_cam():
                 onvif_test.Snapshot()
