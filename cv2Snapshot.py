@@ -78,6 +78,9 @@ def cv2_video_capture(ip, password, client=None, base_dir=''):
     :return:
     """
     # print(basedir)
+
+    if not os.path.isdir(base_dir):
+        os.mkdir(base_dir)
     # 判断rtsp协议的554端口有没有打开。
     port_isopen_result = portisopen(ip, 554)
     logging.debug(f"判断{ip}端口是否打开{type(port_isopen_result)},{port_isopen_result}")
@@ -125,18 +128,19 @@ def cv2_video_capture(ip, password, client=None, base_dir=''):
 
 if __name__ == '__main__':
     # 前两列包含ip和密码的csv文件
-    csv_file = r'D:\监控截图\csv_file\yizhong.csv'
+    csv_file = r'D:\xiandai.csv'
     base_dir = r'd:\监控截图'
-    client_type = 'hik'
+    client_type = 'dahua'
     result = []
     futures = []
-    with ThreadPoolExecutor(10) as executor:
+    with ThreadPoolExecutor() as executor:
         with open(csv_file) as fp:
             csv_reader = csv.reader(fp)
             for line in csv_reader:
                 ip, passwd = line[:2]
                 print(ip, passwd)
                 futures.append(executor.submit(cv2_video_capture, ip, passwd, client_type, base_dir))
+                # break
         # for future in as_completed(futures):
         #     result.append(future.result())
     # print(result[:20])
