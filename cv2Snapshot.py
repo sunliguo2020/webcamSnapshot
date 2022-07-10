@@ -69,15 +69,13 @@ def is_ipv4(ip: str) -> bool:
     return True if [1] * 4 == [x.isdigit() and 0 <= int(x) <= 255 for x in ip.split(".")] else False
 
 
-def cv2_video_capture(ip, password, client=None, base_dir=''):
+def cv2_video_capture(ip, password, client=None, base_dir=None):
     """
-
     :param ip:摄像头IP地址
     :param password:摄像头密码
     :param client: 摄像头类型，这里是hik和dahua
     :return:
     """
-    # print(basedir)
 
     if not os.path.isdir(base_dir):
         os.mkdir(base_dir)
@@ -96,8 +94,6 @@ def cv2_video_capture(ip, password, client=None, base_dir=''):
         os.mkdir(pic_dir)
     logging.debug(f"保存截图的目录:{pic_dir}")
 
-    # print("我为什么没有输出")
-
     # 判断是海康还是大华的摄像头
     if client == 'dahua':
         cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(password, ip))
@@ -106,11 +102,11 @@ def cv2_video_capture(ip, password, client=None, base_dir=''):
     else:
         logging.error("设备类型参数不正确")
         return -1
-    logging.debug(cam)
+    # logging.debug(cam)
     if cam.isOpened():
         ret, frame = cam.read()
         try:
-            file_name = ip + '_' + password + '_' + client + "_rtsp_" + str_time+".jpg"
+            file_name = ip + '_' + password + '_' + client + "_rtsp_" + str_time + ".jpg"
             cv2.imwrite(os.path.join(pic_dir, file_name), frame,
                         [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
