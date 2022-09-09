@@ -6,7 +6,6 @@
 """
 
 import csv
-
 from hik_cv2 import hik_cv2
 from concurrent.futures import ThreadPoolExecutor
 

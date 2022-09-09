@@ -4,6 +4,16 @@
 @contact: QQ376440229
 @Created on: 2021/6/12 10:22
 """
+import socket
+import os
+import time
+
+try:
+    import cv2
+except Exception as e:
+    os.system('pip install opencv-python')
+    import cv2
+
 '''
 // 说明：
 // username：用户名，例如admin
@@ -18,16 +28,6 @@ rtsp://[username]:[passwd]@[ip]:[port]/[codec]/[channel]/[subtype]/av_stream
 '''
 
 
-import socket
-import os
-import time
-try:
-    import cv2
-except Exception as e:
-    os.system('pip install opencv-python')
-    import cv2
-
-
 def portisopen(ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(1)
@@ -38,6 +38,7 @@ def portisopen(ip, port):
     else:
         # print("port is closed")
         return False
+
 
 def is_reachable(ip):
     response = os.system('ping -c 1' + ip)
@@ -60,12 +61,11 @@ def is_ipv4(ip: str) -> bool:
 
 def hik_cv2(ip="192.168.1.200", password='admin'):
     """
-
     :param ip: 摄像头ip地址
     :param password:摄像头密码
     :return:
     """
-    if not portisopen(ip,554):
+    if not portisopen(ip, 554):
         print(f"{ip}:554 端口没有打开")
         return -1
 
@@ -86,7 +86,7 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
 
 
 if __name__ == "__main__":
-    with open(r'd:\xiandai.csv',encoding='utf-8') as f:
+    with open(r'd:\xiandai.csv', encoding='utf-8') as f:
         count = 1
         for i in f:
             if count >= 0:
