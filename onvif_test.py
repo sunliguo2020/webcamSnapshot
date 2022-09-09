@@ -4,7 +4,7 @@
 @contact: QQ376440229
 @Created on: 2022/5/21 7:47
 """
-from onvif_sun import OnvifSun
+from onvifsun import OnvifSun
 import csv
 
 if __name__ == '__main__':
