@@ -12,11 +12,6 @@ onvif抓图大致流程：
 """
 
 import logging
-
-logging.basicConfig(filename='onvif.log',
-                    level=logging.DEBUG,
-                    filemode='a',
-                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 import csv
 import os
 import socket
@@ -25,12 +20,14 @@ import requests
 from onvif import ONVIFCamera
 from requests.auth import HTTPDigestAuth
 
+logging.basicConfig(filename='onvif.log',
+                    level=logging.DEBUG,
+                    filemode='a',
+                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
-#
 
 # def zeep_pythonvalue(self, xmlvalue):
 #     return xmlvalue
-
 
 
 class OnvifSun(object):
@@ -142,7 +139,6 @@ class OnvifSun(object):
 
 if __name__ == "__main__":
 
-
     base_dir = r'd:\监控截图'
 
     row_count = 0
@@ -150,11 +146,11 @@ if __name__ == "__main__":
     with open(r'C:\Users\sunliguo\Desktop\shijidongcheng-dv1.csv') as fp:
         csv_reader = csv.reader(fp)
         for line in csv_reader:
-            row_count +=1
+            row_count += 1
             ip = line[0]
             port = line[1]
-            print(row_count,ip,port)
+            print(row_count, ip, port)
 
-            onvif_test = OnvifSun(ip, port, 'admin', '123456',base_dir=base_dir)
+            onvif_test = OnvifSun(ip, port, 'admin', '123456', base_dir=base_dir)
             if onvif_test.content_cam():
                 onvif_test.Snapshot()

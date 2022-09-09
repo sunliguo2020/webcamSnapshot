@@ -126,7 +126,7 @@ if __name__ == '__main__':
     # 前两列包含ip和密码的csv文件
     csv_file = r'D:\xiandai.csv'
     base_dir = r'd:\监控截图'
-    client_type = 'dahua'
+    client_type = 'hik'
     result = []
     futures = []
     with ThreadPoolExecutor() as executor:

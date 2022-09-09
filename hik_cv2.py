@@ -86,14 +86,14 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
 
 
 if __name__ == "__main__":
-    with open('./yangkouzhongying.txt') as f:
+    with open(r'd:\xiandai.csv',encoding='utf-8') as f:
         count = 1
         for i in f:
             if count >= 0:
                 i = i.replace('\n', '')
                 print(count, ":", i)
                 try:
-                    hik_cv2(i, "hik12345")
+                    hik_cv2(i, "Jn123456")
                 except Exception as e:
                     print(e)
             count += 1
