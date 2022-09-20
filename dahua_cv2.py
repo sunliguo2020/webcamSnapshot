@@ -8,7 +8,11 @@
             添加探测ip端口是否打开
 
 """
-
+import os
+import socket
+import time
+import cv2
+import csv
 '''
 // 说明：
 // username：用户名，例如admin
@@ -38,15 +42,7 @@ rtsp://admin:admin@10.12.4.84:554/cam/realmonitor?channel=2&subtype=1
 
 '''
 
-import os
-import socket
-import time
-import cv2
-import csv
 
-
-# python实战练手项目---使用socket探测主机开放的端口 | 酷python
-# http://www.coolpython.net/python_senior/miny_pro/find_open_port.html
 def portisopen(ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(1)
@@ -87,7 +83,7 @@ def dahua_cv2(ip, password):
     # ip, password = params
     print("要下载的摄像头的ip和password:", ip, password)
 
-    if not portisopen(ip,554):
+    if not portisopen(ip, 554):
         print(f"{ip} 554 端口没有打开")
         return -1
 
