@@ -4,16 +4,6 @@
 @contact: QQ376440229
 @Created on: 2021/6/12 10:22
 
-2022-05-18:添加判断摄像头是否打开成功。
-            添加探测ip端口是否打开
-
-"""
-import os
-import socket
-import time
-import cv2
-import csv
-'''
 // 说明：
 // username：用户名，例如admin
 // passwd：密码，例如12345
@@ -39,9 +29,17 @@ subtype: 码流类型，主码流为0（即subtype=0），辅码流为1（即sub
 使用举例
 rtsp://admin:admin@10.12.4.84:554/cam/realmonitor?channel=2&subtype=1
 
+2022-05-18:添加判断摄像头是否打开成功。
+            添加探测ip端口是否打开
 
-'''
+"""
 
+
+import os
+import socket
+import time
+import cv2
+import csv
 
 def portisopen(ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
