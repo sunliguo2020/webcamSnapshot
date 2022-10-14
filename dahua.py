@@ -13,7 +13,7 @@ from threading import Thread
 if __name__ == '__main__':
     ip_passwd_list=[]
     pool = Pool()
-    with open('./csv/shixunlou.csv') as fp:
+    with open('./xiandai.csv') as fp:
 
         csv_reader = csv.reader(fp)
         with ThreadPoolExecutor(10) as t:
