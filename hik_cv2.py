@@ -3,8 +3,7 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2021/6/12 10:22
-"""
-'''
+
 // 说明：
 // username：用户名，例如admin
 // passwd：密码，例如12345
@@ -15,12 +14,12 @@
 // subtype：码流类型，主码流为main，子码流为sub
 rtsp://[username]:[passwd]@[ip]:[port]/[codec]/[channel]/[subtype]/av_stream
 在 OpenCV 中，很简单就能读取 IP 摄像头。
-'''
 
-
+"""
 import socket
 import os
 import time
+
 try:
     import cv2
 except Exception as e:
@@ -38,6 +37,7 @@ def portisopen(ip, port):
     else:
         # print("port is closed")
         return False
+
 
 def is_reachable(ip):
     response = os.system('ping -c 1' + ip)
@@ -60,12 +60,11 @@ def is_ipv4(ip: str) -> bool:
 
 def hik_cv2(ip="192.168.1.200", password='admin'):
     """
-
     :param ip: 摄像头ip地址
     :param password:摄像头密码
     :return:
     """
-    if not portisopen(ip,554):
+    if not portisopen(ip, 554):
         print(f"{ip}:554 端口没有打开")
         return -1
 
@@ -86,14 +85,14 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
 
 
 if __name__ == "__main__":
-    with open('./yangkouzhongying.txt') as f:
+    with open(r'd:\xiandai.csv', encoding='utf-8') as f:
         count = 1
         for i in f:
             if count >= 0:
                 i = i.replace('\n', '')
                 print(count, ":", i)
                 try:
-                    hik_cv2(i, "hik12345")
+                    hik_cv2(i, "Jn123456")
                 except Exception as e:
                     print(e)
             count += 1

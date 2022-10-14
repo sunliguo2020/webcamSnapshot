@@ -24,8 +24,7 @@ logging.basicConfig(filename='cv2.log',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
 
-# python实战练手项目---使用socket探测主机开放的端口 | 酷python
-# http://www.coolpython.net/python_senior/miny_pro/find_open_port.html
+
 def portisopen(ip, port):
     """
 
@@ -126,7 +125,7 @@ if __name__ == '__main__':
     # 前两列包含ip和密码的csv文件
     csv_file = r'D:\xiandai.csv'
     base_dir = r'd:\监控截图'
-    client_type = 'dahua'
+    client_type = 'hik'
     result = []
     futures = []
     with ThreadPoolExecutor() as executor:
