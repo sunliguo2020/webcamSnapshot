@@ -3,18 +3,7 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2021/6/12 10:22
-"""
-import socket
-import os
-import time
 
-try:
-    import cv2
-except Exception as e:
-    os.system('pip install opencv-python')
-    import cv2
-
-'''
 // 说明：
 // username：用户名，例如admin
 // passwd：密码，例如12345
@@ -25,7 +14,17 @@ except Exception as e:
 // subtype：码流类型，主码流为main，子码流为sub
 rtsp://[username]:[passwd]@[ip]:[port]/[codec]/[channel]/[subtype]/av_stream
 在 OpenCV 中，很简单就能读取 IP 摄像头。
-'''
+
+"""
+import socket
+import os
+import time
+
+try:
+    import cv2
+except Exception as e:
+    os.system('pip install opencv-python')
+    import cv2
 
 
 def portisopen(ip, port):
