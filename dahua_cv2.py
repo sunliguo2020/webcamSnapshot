@@ -33,43 +33,9 @@ rtsp://admin:admin@10.12.4.84:554/cam/realmonitor?channel=2&subtype=1
             添加探测ip端口是否打开
 
 """
-import os
-import socket
 import time
 import cv2
-import csv
-
-
-def portisopen(ip, port):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(1)
-    state = sock.connect_ex((ip, port))
-    if 0 == state:
-        # print("port is open")
-        return True
-    else:
-        # print("port is closed")
-        return False
-
-
-def is_reachable(ip):
-    response = os.system('ping -c 1' + ip)
-    if response == 0:
-        print(ip + 'is reachable')
-        return 1
-    else:
-        print(ip + 'is not reachable')
-        return 0
-
-
-def is_ipv4(ip: str) -> bool:
-    """
-    检查ip是否合法
-    :param: ip ip地址
-    :return: True 合法 False 不合法
-    """
-    return True if [1] * 4 == [x.isdigit() and 0 <= int(x) <= 255 for x in ip.split(".")] else False
-
+from tool import portisopen
 
 def dahua_cv2(ip, password):
     """
@@ -127,6 +93,5 @@ def dahua_channel(ip, password, channel_no=65):
 
 
 if __name__ == "__main__":
-
     dahua_channel('172.21.67.251', '5222429', 65)
     # dahua_channel('172.21.65.169','admin',65)

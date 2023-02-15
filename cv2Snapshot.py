@@ -24,7 +24,6 @@ logging.basicConfig(filename='cv2.log',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
 
-
 def portisopen(ip, port):
     """
 
@@ -47,25 +46,6 @@ def portisopen(ip, port):
 
     sock.close()
     return flag
-
-
-def is_reachable(ip):
-    response = os.system('ping -c 1' + ip)
-    if response == 0:
-        print(ip + 'is reachable')
-        return 1
-    else:
-        print(ip + 'is not reachable')
-        return 0
-
-
-def is_ipv4(ip: str) -> bool:
-    """
-    检查ip是否合法
-    :param: ip ip地址
-    :return: True 合法 False 不合法
-    """
-    return True if [1] * 4 == [x.isdigit() and 0 <= int(x) <= 255 for x in ip.split(".")] else False
 
 
 def cv2_video_capture(ip, password, client=None, base_dir=None):
