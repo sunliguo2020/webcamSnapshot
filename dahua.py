@@ -11,13 +11,12 @@ from multiprocessing import Pool
 from threading import Thread
 
 if __name__ == '__main__':
-    ip_passwd_list=[]
-    pool = Pool()
-    with open('./xiandai.csv') as fp:
+
+    with open('./test.csv') as fp:
 
         csv_reader = csv.reader(fp)
         with ThreadPoolExecutor(10) as t:
             for ip,password in csv_reader:
-                # t = Thread(target=dahua_cv2,args=(ip,password))
+
                 t.submit(dahua_cv2,ip,password)
 

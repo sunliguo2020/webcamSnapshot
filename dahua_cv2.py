@@ -33,13 +33,12 @@ rtsp://admin:admin@10.12.4.84:554/cam/realmonitor?channel=2&subtype=1
             添加探测ip端口是否打开
 
 """
-
-
 import os
 import socket
 import time
 import cv2
 import csv
+
 
 def portisopen(ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -74,11 +73,11 @@ def is_ipv4(ip: str) -> bool:
 
 def dahua_cv2(ip, password):
     """
-    :param ip:
-    :param password:
+    :param ip:摄像头ip地址
+    :param password:摄像头密码
     :return:
     """
-    # ip, password = params
+
     print("要下载的摄像头的ip和password:", ip, password)
 
     if not portisopen(ip, 554):
@@ -86,8 +85,6 @@ def dahua_cv2(ip, password):
         return -1
 
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
-    # print(str_time)
-    # cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(password, ip))
 
     cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(password, ip))
     if cam.isOpened():
@@ -96,12 +93,12 @@ def dahua_cv2(ip, password):
                     [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         cam.release()
         cv2.destroyAllWindows()
-
         print(f"ip：{ip}下载完成")
     else:
         print(f"打开摄像头{ip}失败！")
 
-def dahua_channel_all(ip,password,channel_no=64):
+
+def dahua_channel(ip, password, channel_no=65):
     """
     抓取多通道截图（一般是录像机）
     @param ip: 录像机的ip
@@ -114,12 +111,12 @@ def dahua_channel_all(ip,password,channel_no=64):
     # if not portisopen(ip, 554):
     #     print(f"{ip} 554 端口没有打开")
     #     return -1
-    for i in range(channel_no):
+    for i in range(1, channel_no):
         str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
         cam = cv2.VideoCapture(f"rtsp://admin:{password}@{ip}:554/cam/realmonitor?channel={i}&subtype=0")
         if cam.isOpened():
             ret, frame = cam.read()
-            cv2.imwrite('./{}_channel_{}.jpg'.format(ip + '_' + password + "_dahua_rstp_" + str_time,i), frame,
+            cv2.imwrite('./{}_channel_{}.jpg'.format(ip + '_' + password + "_dahua_rstp_" + str_time, i), frame,
                         [int(cv2.IMWRITE_JPEG_QUALITY), 95])
             cam.release()
             cv2.destroyAllWindows()
@@ -127,19 +124,9 @@ def dahua_channel_all(ip,password,channel_no=64):
             print(f"录像机：{ip}通道号：{i}下载完成")
         else:
             print(f"截取录像机：{ip}通道号：{i}失败")
+
+
 if __name__ == "__main__":
-    # with open('./tejiao.csv') as f:
-    #     count = 1
-    #     csv_read = csv.reader(f)
-    #     for ip, passwd in csv_read:
-    #         # ip = i[0]
-    #         # passwd = i[1]
-    #         if count >= 0:
-    #             print(count, ":", ip)
-    #             try:
-    #                 dahua_cv2(ip, passwd)
-    #             except Exception as e:
-    #                 print(e)
-    #         count += 1
-    dahua_channel_all('172.21.65.167','admin',64)
-    dahua_channel_all('172.21.65.169','admin',64)
+
+    dahua_channel('172.21.67.251', '5222429', 65)
+    # dahua_channel('172.21.65.169','admin',65)
