@@ -26,13 +26,9 @@ logging.basicConfig(filename='onvif.log',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
 
-# def zeep_pythonvalue(self, xmlvalue):
-#     return xmlvalue
-
-
 class OnvifSun(object):
     """
-
+    onvif协议的实现
     """
 
     def __init__(self, ip, port=80, username="admin", password="admin", base_dir=''):
