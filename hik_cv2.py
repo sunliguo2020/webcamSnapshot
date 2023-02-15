@@ -23,7 +23,7 @@ from tool import portisopen
 
 try:
     import cv2
-except Exception as e:
+except ImportError as e:
     os.system('pip install opencv-python')
     import cv2
 
@@ -39,9 +39,11 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
         return -1
 
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
+    # 保存截图的目录
     pic_dic = time.strftime('%Y-%m-%d', time.localtime())
     if not os.path.isdir(pic_dic):
         os.mkdir(pic_dic)
+
     try:
         cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(password, ip))
         ret, frame = cam.read()
