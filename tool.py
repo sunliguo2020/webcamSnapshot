@@ -3,6 +3,7 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2023-02-15 18:13
+将通用的函数放在一起。
 """
 import os
 import socket
