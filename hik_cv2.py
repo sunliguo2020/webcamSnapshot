@@ -30,6 +30,8 @@ except ImportError as e:
 
 def hik_cv2(ip="192.168.1.200", password='admin'):
     """
+    文件名保存的格式：ip_password_hik_timestr
+
     :param ip: 摄像头ip地址
     :param password:摄像头密码
     :return:
@@ -43,12 +45,16 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
     pic_dic = time.strftime('%Y-%m-%d', time.localtime())
     if not os.path.isdir(pic_dic):
         os.mkdir(pic_dic)
+    pic_file_name = f"{ip}_{password}_hik_{str_time}.jpg"
+    # 保存文件的路径名
+    pic_full_path = os.path.join(pic_dir, pic_file_name)
+
+    print(f'要保存的文件路名为：{pic_full_path}')
 
     try:
         cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(password, ip))
         ret, frame = cam.read()
-        cv2.imwrite(pic_dic + '/{}.jpg'.format(ip + '_' + password + "_" + str_time), frame,
-                    [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        cv2.imwrite(pic_full_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         cam.release()
         cv2.destroyAllWindows()
         print(f"ip：{ip}下载完成")
