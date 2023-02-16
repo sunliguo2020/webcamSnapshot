@@ -23,11 +23,13 @@ def csv2jpg(file_path, password='admin', count=0):
         with ThreadPoolExecutor(10) as t:
             for i in reader:
                 incount += 1
+                # 跳过前几行
                 if incount < count:
                     continue
+                # 如果只有ip这1列
                 if len(i) == 1:
                     ip = i[0]
-                    passwd = "admin123"
+                    passwd = password
                 elif len(i) >= 2:
                     ip = i[0]
                     passwd = i[1]
@@ -37,4 +39,4 @@ def csv2jpg(file_path, password='admin', count=0):
 
 
 if __name__ == '__main__':
-    csv2jpg('./shijidongcheng.csv', count=0)
+    csv2jpg('./shijidongcheng-hik.csv', count=0)
