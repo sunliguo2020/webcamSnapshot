@@ -16,6 +16,7 @@ rtsp://[username]:[passwd]@[ip]:[port]/[codec]/[channel]/[subtype]/av_stream
 在 OpenCV 中，很简单就能读取 IP 摄像头。
 
 """
+import csv
 import os
 import time
 
@@ -42,12 +43,13 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
 
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
     # 保存截图的目录
-    pic_dic = time.strftime('%Y-%m-%d', time.localtime())
-    if not os.path.isdir(pic_dic):
-        os.mkdir(pic_dic)
+    pic_dir = time.strftime('%Y-%m-%d', time.localtime())
+
+    if not os.path.isdir(pic_dir):
+        os.mkdir(os.path.join('./',pic_dir))
     pic_file_name = f"{ip}_{password}_hik_{str_time}.jpg"
     # 保存文件的路径名
-    pic_full_path = os.path.join(pic_dir, pic_file_name)
+    pic_full_path = os.path.join(pic_dir,pic_file_name)
 
     print(f'要保存的文件路名为：{pic_full_path}')
 
@@ -63,14 +65,15 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
 
 
 if __name__ == "__main__":
-    with open(r'd:\xiandai.csv', encoding='utf-8') as f:
+    with open(r'./csv_file/ruizhi.csv', encoding='utf-8') as f:
         count = 1
-        for i in f:
+        f_read = csv.reader(f)
+        for i in f_read:
             if count >= 0:
-                i = i.replace('\n', '')
-                print(count, ":", i)
+                ip, password = i
+                print(count, ":", ip)
                 try:
-                    hik_cv2(i, "Jn123456")
+                    hik_cv2(ip, password)
                 except Exception as e:
                     print(e)
             count += 1
