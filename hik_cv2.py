@@ -17,6 +17,7 @@ rtsp://[username]:[passwd]@[ip]:[port]/[codec]/[channel]/[subtype]/av_stream
 
 """
 import csv
+import logging
 import os
 import time
 
@@ -28,10 +29,15 @@ except ImportError as e:
     os.system('pip install opencv-python')
     import cv2
 
+logging.basicConfig(filename='hik_cv2.log',
+                    level=logging.INFO,
+                    filemode='a',
+                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+
 
 def hik_cv2(ip="192.168.1.200", password='admin'):
     """
-    文件名保存的格式：ip_password_hik_timestr
+    文件名保存的格式：ip_password_hik_timestr.jpg
 
     :param ip: 摄像头ip地址
     :param password:摄像头密码
@@ -39,6 +45,7 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
     """
     if not portisopen(ip, 554):
         print(f"{ip}:554 端口没有打开")
+        logging.debug(f'{ip} 554端口没开放或者网络不通！')
         return -1
 
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
@@ -46,26 +53,32 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
     pic_dir = time.strftime('%Y-%m-%d', time.localtime())
 
     if not os.path.isdir(pic_dir):
-        os.mkdir(os.path.join('./',pic_dir))
+        os.mkdir(os.path.join('./', pic_dir))
     pic_file_name = f"{ip}_{password}_hik_{str_time}.jpg"
     # 保存文件的路径名
-    pic_full_path = os.path.join(pic_dir,pic_file_name)
+    pic_full_path = os.path.join(pic_dir, pic_file_name)
 
-    print(f'要保存的文件路名为：{pic_full_path}')
+    logging.debug(f'要保存的文件路名为：{pic_full_path}')
 
     try:
         cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(password, ip))
         ret, frame = cam.read()
-        cv2.imwrite(pic_full_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        retval = cv2.imwrite(pic_full_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        # if not retval:
+        #     logging.debug(f'{ip}保存图像失败')
+    except Exception as e:
+        logging.debug(f'{ip} cv2 失败{e}')
+    finally:
         cam.release()
         cv2.destroyAllWindows()
-        print(f"ip：{ip}下载完成")
-    except Exception as e:
-        print(e)
+        if not os.path.isfile(pic_full_path):
+            logging.info(f'{ip}保存截图失败')
 
 
 if __name__ == "__main__":
-    with open(r'./csv_file/ruizhi.csv', encoding='utf-8') as f:
+    csv_file = r'./csv_file/ruizhi.csv'
+
+    with open(csv_file, encoding='utf-8') as f:
         count = 1
         f_read = csv.reader(f)
         for i in f_read:
