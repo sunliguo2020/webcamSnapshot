@@ -75,18 +75,23 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
             logging.info(f'{ip}保存截图失败')
 
 
+def gen_ip_password_from_csv(file_path):
+    with open(file_path, encoding='utf-8') as f:
+        csv_read = csv.reader(f)
+        for ip, password in csv_read:
+            yield ip, password
+
+
 if __name__ == "__main__":
     csv_file = r'./csv_file/ruizhi.csv'
 
-    with open(csv_file, encoding='utf-8') as f:
-        count = 1
-        f_read = csv.reader(f)
-        for i in f_read:
-            if count >= 0:
-                ip, password = i
-                print(count, ":", ip)
-                try:
-                    hik_cv2(ip, password)
-                except Exception as e:
-                    print(e)
-            count += 1
+    count = 1
+
+    for ip, password in gen_ip_password_from_csv(csv_file):
+        if count >= 0:
+            print(count, ":", ip)
+            try:
+                hik_cv2(ip, password)
+            except Exception as e:
+                print(e)
+        count += 1
