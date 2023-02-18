@@ -11,19 +11,22 @@ onvif抓图大致流程：
 我的做法就是用onvif获取到抓图路径，然后用http直接下载下来即可
 """
 
-import logging
 import csv
+import logging
+logging.basicConfig(filename='onvif.log',
+                    level=logging.INFO,
+                    filemode='a',
+                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+logging.debug('开始记录')
 import os
 import socket
 import time
+
 import requests
 from onvif import ONVIFCamera
 from requests.auth import HTTPDigestAuth
 
-logging.basicConfig(filename='onvif.log',
-                    level=logging.DEBUG,
-                    filemode='a',
-                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+
 
 
 class OnvifSun(object):
@@ -36,20 +39,19 @@ class OnvifSun(object):
         self.username = username
         self.password = password
         self.port = port
-        # zeep.xsd.simple.AnySimpleType.pythonvalue = zeep_pythonvalue
-        # print(self.password)
 
         # 保存截图的目录  运行程序的日期为目录名
         str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
         pic_dir = os.path.join(base_dir, time.strftime('%Y-%m-%d', time.localtime()))
 
         if not os.path.isdir(pic_dir):
-            os.mkdir(pic_dir)
+            os.makedirs(pic_dir)
         logging.debug(f"保存截图的目录:{pic_dir}")
 
-        self.file_name = "./{}_{}_{}_onvif_{}.jpg". \
+        self.file_name = "{}_{}_{}_onvif_{}.jpg". \
             format(self.ip, self.password, self.port, str_time)
-        self.save_path = os.path.join(base_dir, self.file_name)  # 截图保存路径
+
+        self.save_path = os.path.join(pic_dir, self.file_name)  # 截图保存路径
 
     def portisopen(self, ip, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -135,18 +137,23 @@ class OnvifSun(object):
 
 if __name__ == "__main__":
 
+    # csv文件格式 ip,password,port
+    csv_file = r'./csv_file/ruizhi.csv'
     base_dir = r'd:\监控截图'
-
     row_count = 0
 
-    with open(r'C:\Users\sunliguo\Desktop\shijidongcheng-dv1.csv') as fp:
+    with open(csv_file) as fp:
         csv_reader = csv.reader(fp)
         for line in csv_reader:
             row_count += 1
             ip = line[0]
-            port = line[1]
-            print(row_count, ip, port)
+            password = line[1]
+            print(row_count, ip)
 
-            onvif_test = OnvifSun(ip, port, 'admin', '123456', base_dir=base_dir)
+            onvif_test = OnvifSun(ip, 80, 'admin', password, base_dir=base_dir)
             if onvif_test.content_cam():
+                logging.info(f'开始截图{ip}')
                 onvif_test.Snapshot()
+            else:
+                logging.info(f'{ip}:链接相机失败')
+
