@@ -35,7 +35,7 @@ logging.basicConfig(filename='hik_cv2.log',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
 
-def hik_cv2(ip="192.168.1.200", password='admin'):
+def hik_cv2(ip="192.168.1.200", password='admin', dir_pre=''):
     """
     文件名保存的格式：ip_password_hik_timestr.jpg
 
@@ -50,10 +50,11 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
 
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
     # 保存截图的目录
-    pic_dir = time.strftime('%Y-%m-%d', time.localtime())
+    pic_dir = dir_pre +"_"+ time.strftime('%Y-%m-%d', time.localtime())
 
     if not os.path.isdir(pic_dir):
-        os.mkdir(os.path.join('./', pic_dir))
+        os.makedirs(os.path.join('./', pic_dir))
+
     pic_file_name = f"{ip}_{password}_hik_{str_time}.jpg"
     # 保存文件的路径名
     pic_full_path = os.path.join(pic_dir, pic_file_name)
@@ -75,8 +76,18 @@ def hik_cv2(ip="192.168.1.200", password='admin'):
             logging.info(f'{ip}保存截图失败')
 
 
-def gen_ip_password_from_csv(file_path):
+def gen_ip_password_from_csv(file_path, line_count=0):
+    """
+    读取csv文件，返回ip，password
+    :param file_path: 要读取的csv文件
+    :param line_count: 跳过前几行
+    :return: ip,password
+    """
     with open(file_path, encoding='utf-8') as f:
+        # 跳过前几行
+        for i in range(line_count):
+            next(f)  # 跳过一行
+
         csv_read = csv.reader(f)
         for ip, password in csv_read:
             yield ip, password
@@ -85,13 +96,12 @@ def gen_ip_password_from_csv(file_path):
 if __name__ == "__main__":
     csv_file = r'./csv_file/ruizhi.csv'
 
-    count = 1
+    for count, (ip, password) in enumerate(gen_ip_password_from_csv(csv_file, 0), start=1):
 
-    for ip, password in gen_ip_password_from_csv(csv_file):
-        if count >= 0:
-            print(count, ":", ip)
-            try:
-                hik_cv2(ip, password)
-            except Exception as e:
-                print(e)
-        count += 1
+        print(count, ":", ip)
+        try:
+            hik_cv2(ip, password,dir_pre=os.path.basename(csv_file).split('.')[0])
+
+        except Exception as e:
+            # print(e)
+            pass
