@@ -3,6 +3,9 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2021/6/12 10:22
+RTSP全称实时流协议(Real Time Streaming Protocol)，它是一个网络控制协议，设计用于娱乐、会议系统
+中控制流媒体服务器。RTSP用于在希望通讯的两端建立并控制媒体会话(session)，客户端通过发出VCR-style
+命令如play、record和pause等来实时控制媒体流。
 
 // 说明：
 // username：用户名，例如admin
@@ -34,23 +37,22 @@ rtsp://admin:admin@10.12.4.84:554/cam/realmonitor?channel=2&subtype=1
 
 """
 import logging
-import os
-import time
-
-import cv2
-
-from tool import portisopen
 
 logging.basicConfig(filename='dahua_cv2.log',
                     level=logging.debug,
                     filemode='a',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+import os
+import time
+import cv2
+from tool import portisopen
 
 
 def dahua_cv2(ip, password, dir_pre=''):
     """
     :param ip:摄像头ip地址
     :param password:摄像头密码
+    :param pre :保存文件夹前缀
     :return:
     """
 
