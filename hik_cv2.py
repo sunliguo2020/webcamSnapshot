@@ -41,7 +41,10 @@ def hik_cv2(ip="192.168.1.200", password='admin', dir_pre=''):
 
     :param ip: 摄像头ip地址
     :param password:摄像头密码
+    :param dir_pre: 保存目录前缀
     :return:
+            -1:网络不通或者端口554没有打开
+
     """
     if not portisopen(ip, 554):
         print(f"{ip}:554 端口没有打开")
@@ -50,7 +53,7 @@ def hik_cv2(ip="192.168.1.200", password='admin', dir_pre=''):
 
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
     # 保存截图的目录
-    pic_dir = dir_pre +"_"+ time.strftime('%Y-%m-%d', time.localtime())
+    pic_dir = dir_pre + "_" + time.strftime('%Y-%m-%d', time.localtime())
 
     if not os.path.isdir(pic_dir):
         os.makedirs(os.path.join('./', pic_dir))
@@ -72,8 +75,13 @@ def hik_cv2(ip="192.168.1.200", password='admin', dir_pre=''):
     finally:
         cam.release()
         cv2.destroyAllWindows()
+
         if not os.path.isfile(pic_full_path):
             logging.info(f'{ip}保存截图失败')
+            return -2
+        else:
+            logging.info(f"{ip}保存截图成功")
+            return 1
 
 
 def gen_ip_password_from_csv(file_path, line_count=0):
@@ -94,14 +102,21 @@ def gen_ip_password_from_csv(file_path, line_count=0):
 
 
 if __name__ == "__main__":
-    csv_file = r'./csv_file/ruizhi.csv'
+    csv_file = r'./txt/ruizhi.csv'
+    failed_ip = []
 
     for count, (ip, password) in enumerate(gen_ip_password_from_csv(csv_file, 0), start=1):
 
         print(count, ":", ip)
         try:
-            hik_cv2(ip, password,dir_pre=os.path.basename(csv_file).split('.')[0])
+            result = hik_cv2(ip, password, dir_pre=os.path.basename(csv_file).split('.')[0])
 
         except Exception as e:
-            # print(e)
-            pass
+            print(e)
+        # 统计下载失败的IP地址
+        if result < 0:
+            print(f"{ip}下载失败")
+            failed_ip.append(ip)
+
+    print(f"总共有{len(failed_ip)}个ip截图失败")
+    print(failed_ip)
