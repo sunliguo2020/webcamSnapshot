@@ -3,6 +3,9 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2021/6/12 10:22
+RTSP全称实时流协议(Real Time Streaming Protocol)，它是一个网络控制协议，设计用于娱乐、会议系统
+中控制流媒体服务器。RTSP用于在希望通讯的两端建立并控制媒体会话(session)，客户端通过发出VCR-style
+命令如play、record和pause等来实时控制媒体流。
 
 // 说明：
 // username：用户名，例如admin
@@ -33,14 +36,23 @@ rtsp://admin:admin@10.12.4.84:554/cam/realmonitor?channel=2&subtype=1
             添加探测ip端口是否打开
 
 """
+import logging
+
+logging.basicConfig(filename='dahua_cv2.log',
+                    level=logging.debug,
+                    filemode='a',
+                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+import os
 import time
 import cv2
 from tool import portisopen
 
-def dahua_cv2(ip, password):
+
+def dahua_cv2(ip, password, dir_pre=''):
     """
     :param ip:摄像头ip地址
     :param password:摄像头密码
+    :param pre :保存文件夹前缀
     :return:
     """
 
@@ -51,11 +63,22 @@ def dahua_cv2(ip, password):
         return -1
 
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
+    # 保存截图的目录
+    pic_dir = dir_pre + "_" + time.strftime('%Y-%m-%d', time.localtime())
+
+    if not os.path.isdir(pic_dir):
+        os.makedirs(os.path.join('./', pic_dir))
+
+    pic_file_name = f"{ip}_{password}_dahua_{str_time}.jpg"
+    # 保存文件的路径名
+    pic_full_path = os.path.join(pic_dir, pic_file_name)
+
+    logging.debug(f'要保存的文件路名为：{pic_full_path}')
 
     cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(password, ip))
     if cam.isOpened():
         ret, frame = cam.read()
-        cv2.imwrite('./{}.jpg'.format(ip + '_' + password + "_dahua_rstp_" + str_time), frame,
+        cv2.imwrite(pic_full_path, frame,
                     [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         cam.release()
         cv2.destroyAllWindows()
