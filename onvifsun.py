@@ -13,20 +13,18 @@ onvif抓图大致流程：
 
 import csv
 import logging
+
 logging.basicConfig(filename='onvif.log',
                     level=logging.INFO,
                     filemode='a',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
-logging.debug('开始记录')
+
 import os
 import socket
 import time
-
 import requests
 from onvif import ONVIFCamera
 from requests.auth import HTTPDigestAuth
-
-
 
 
 class OnvifSun(object):
@@ -34,7 +32,7 @@ class OnvifSun(object):
     onvif协议的实现
     """
 
-    def __init__(self, ip, port=80, username="admin", password="admin", base_dir=''):
+    def __init__(self, ip='192.168.1.1', port=80, username="admin", password="admin", base_dir=''):
         self.ip = ip
         self.username = username
         self.password = password
@@ -71,19 +69,19 @@ class OnvifSun(object):
         """
         flag = ""
         if not self.portisopen(self.ip, int(self.port)):
-            logging.debug(f'{self.ip}:{self.port} 打开失败！')
+            logging.info(f'{self.ip}:{self.port} 打开失败！')
             return False
         else:
             logging.debug(f'{self.ip}:{self.port} {self.password} 打开！')
         try:
-            logging.debug("正在创建媒体")
+            logging.info(f"{self.ip}正在创建媒体")
             self.mycam = ONVIFCamera(self.ip, self.port, self.username, self.password)
             self.media = self.mycam.create_media_service()  # 创建媒体服务
             self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
             # self.ptz = self.mycam.create_ptz_service()  # 创建控制台服务
             flag = True
         except Exception as e:
-            logging.debug(f"发生错误!{e}")
+            logging.info(f"发生错误!{e}")
             flag = False
 
         return flag
@@ -93,12 +91,15 @@ class OnvifSun(object):
         截图
         :return:
         """
-        res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
-        # print("response:")
-        response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password), timeout=1)
-        logging.debug(f'正在保存{self.ip}的截图')
-        with open(self.save_path, 'wb') as fp:  # 保存截图
-            fp.write(response.content)
+        try:
+            res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
+            response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password), timeout=1)
+        except Exception as e:
+            logging.info(f'try to requests.get {e}')
+        else:
+            logging.info(f'正在保存{self.ip}的截图')
+            with open(self.save_path, 'wb') as fp:  # 保存截图
+                fp.write(response.content)
 
     def get_presets(self):
         """
@@ -137,8 +138,8 @@ class OnvifSun(object):
 
 if __name__ == "__main__":
 
-    # csv文件格式 ip,password,port
-    csv_file = r'./csv_file/ruizhi.csv'
+    # csv文件格式 ip,port,username,password
+    csv_file = r'./txt/test.csv'
     base_dir = r'd:\监控截图'
     row_count = 0
 
@@ -146,14 +147,13 @@ if __name__ == "__main__":
         csv_reader = csv.reader(fp)
         for line in csv_reader:
             row_count += 1
-            ip = line[0]
-            password = line[1]
-            print(row_count, ip)
+            ip, port, username, password = line[:4]
 
-            onvif_test = OnvifSun(ip, 80, 'admin', password, base_dir=base_dir)
+            print(row_count, ip, port)
+
+            onvif_test = OnvifSun(ip, port, 'admin', password, base_dir=base_dir)
             if onvif_test.content_cam():
                 logging.info(f'开始截图{ip}')
                 onvif_test.Snapshot()
             else:
                 logging.info(f'{ip}:链接相机失败')
-
