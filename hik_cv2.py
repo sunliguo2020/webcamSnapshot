@@ -98,7 +98,7 @@ def gen_ip_password_from_csv(file_path, line_count=0):
 
         csv_read = csv.reader(f)
         for cam_ip, cam_pwd in csv_read:
-            yield cam_ip, cam_pwd
+            yield cam_ip.strip(), cam_pwd.strip()
 
 
 if __name__ == "__main__":
