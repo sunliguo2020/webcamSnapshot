@@ -106,6 +106,7 @@ if __name__ == "__main__":
     csv_file = r'./txt/ruizhi.csv'
     # 截图失败的IP地址
     failed_ip = []
+    success_ip = []
 
     for count, (ip, password) in enumerate(gen_ip_password_from_csv(csv_file, 0), start=1):
 
@@ -119,6 +120,10 @@ if __name__ == "__main__":
         if result < 0:
             print(f"{ip}下载失败")
             failed_ip.append(ip)
+        elif result == 1:
+            success_ip.append(ip)
 
     print(f"总共有{len(failed_ip)}个ip截图失败")
     print(failed_ip)
+    print(f'总共成功{len(success_ip)}个ip截图')
+    print(success_ip)
