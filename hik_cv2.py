@@ -69,7 +69,7 @@ def hik_cv2(cam_ip="192.168.1.200", cam_pwd='admin', dir_pre=''):
         ret, frame = cam.read()
         # 添加水印信息
         # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
-        img2 = cv2.putText(frame, pic_file_name.replace('.jpg',''), (100, 100), cv2.LINE_AA, 2, (249, 249, 249), 4)
+        img2 = cv2.putText(frame, pic_file_name.replace('.jpg',''), (50, 200), cv2.LINE_AA, 2, (100,255,0), 6)
         retval = cv2.imwrite(pic_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         # if not retval:
         #     logging.debug(f'{ip}保存图像失败')
