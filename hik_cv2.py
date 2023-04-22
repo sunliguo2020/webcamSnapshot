@@ -144,11 +144,20 @@ if __name__ == "__main__":
                 print('截图成功，准备删除', item)
                 if ip not in success_ip:
                     success_ip.append(ip)
+                # 在失败记录中删除该ip
+                if ip in failed_ip:
+                    failed_ip.remove(ip)
+                # 删除这条ip
                 ip_passwd.remove(item)
 
     print(f"总共有{len(failed_ip)}个ip截图失败")
     print(failed_ip)
     print(f'总共成功{len(success_ip)}个ip截图')
-    print(success_ip)
+
     print('失败次数')
-    print(ip_passwd)
+    print(len(ip_passwd),ip_passwd)
+
+    # 保存失败的ip记录到文件中
+    with open('failed_'+time.strftime("%Y%m%d%H%M%S", time.localtime())+'.csv','w',newline='') as fp:
+        csv_writer = csv.writer(fp)
+        csv_writer.writerows(ip_passwd)
