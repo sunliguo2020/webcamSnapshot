@@ -69,7 +69,7 @@ def hik_cv2(cam_ip="192.168.1.200", cam_pwd='admin', dir_pre=''):
         ret, frame = cam.read()
         # 添加水印信息
         # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
-        img2 = cv2.putText(frame, pic_file_name.replace('.jpg', ''), (50, 200), cv2.LINE_AA, 2, (100, 255, 0), 6)
+        img2 = cv2.putText(frame, pic_file_name.replace('.jpg', ''), (50, 200), cv2.LINE_AA, 2, (100, 255, 0), 5)
         retval = cv2.imwrite(pic_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         # if not retval:
         #     logging.debug(f'{ip}保存图像失败')
@@ -107,8 +107,6 @@ def gen_ip_password_from_csv(file_path, line_count=0):
 if __name__ == "__main__":
     # 包含ip和密码的csv文件
     csv_file = r'./txt/ruizhi.csv'
-    # 截图失败的IP地址
-    failed_ip = []
     success_ip = []
     # 列表的格式
     # ip,password,截取的次数(初始为0)
@@ -137,25 +135,20 @@ if __name__ == "__main__":
             # 统计下载失败的IP地址
             if result < 0:
                 print(f"{ip}下载失败")
-                if ip not in failed_ip:
-                    failed_ip.append(ip)
+
                 item[2] += 1
             elif result == 1:
                 print('截图成功，准备删除', item)
                 if ip not in success_ip:
                     success_ip.append(ip)
-                # 在失败记录中删除该ip
-                if ip in failed_ip:
-                    failed_ip.remove(ip)
+
                 # 删除这条ip
                 ip_passwd.remove(item)
 
-    print(f"总共有{len(failed_ip)}个ip截图失败")
-    print(failed_ip)
     print(f'总共成功{len(success_ip)}个ip截图')
 
-    print('失败次数')
-    print(len(ip_passwd),ip_passwd)
+    print(f'最后还有{len(ip_passwd)}个ip截图失败')
+    print(ip_passwd)
 
     # 保存失败的ip记录到文件中
     with open('failed_'+time.strftime("%Y%m%d%H%M%S", time.localtime())+'.csv','w',newline='') as fp:
