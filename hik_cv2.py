@@ -69,7 +69,7 @@ def hik_cv2(cam_ip="192.168.1.200", cam_pwd='admin', dir_pre=''):
         ret, frame = cam.read()
         # 添加水印信息
         # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
-        img2 = cv2.putText(frame, pic_file_name.replace('.jpg',''), (50, 200), cv2.LINE_AA, 2, (100,255,0), 6)
+        img2 = cv2.putText(frame, pic_file_name.replace('.jpg', ''), (50, 200), cv2.LINE_AA, 2, (100, 255, 0), 6)
         retval = cv2.imwrite(pic_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         # if not retval:
         #     logging.debug(f'{ip}保存图像失败')
@@ -110,23 +110,45 @@ if __name__ == "__main__":
     # 截图失败的IP地址
     failed_ip = []
     success_ip = []
+    # 列表的格式
+    # ip,password,截取的次数(初始为0)
+    # 成功的剔除,失败的增加次数。次数超过一定的数则退出。
+    # [[ip,password,number of time],[],...]
+    ip_passwd = []
 
-    for count, (ip, password) in enumerate(gen_ip_password_from_csv(csv_file, 0), start=1):
+    # 初始化要截图的ip,passwd,密码
+    for i in gen_ip_password_from_csv(csv_file, 0):
+        temp = list(i)
+        temp.append(0)
+        ip_passwd.append(temp)
 
-        print(count, ":", ip)
-        try:
-            result = hik_cv2(ip, password, dir_pre=os.path.basename(csv_file).split('.')[0])
+    count = 0
+    while ip_passwd[0][2] < 5:
+        for item in ip_passwd[:]:
 
-        except Exception as e:
-            print(e)
-        # 统计下载失败的IP地址
-        if result < 0:
-            print(f"{ip}下载失败")
-            failed_ip.append(ip)
-        elif result == 1:
-            success_ip.append(ip)
+            ip, password = item[:2]
+            count += 1
+            print(count, ":", ip)
+            try:
+                result = hik_cv2(ip, password, dir_pre=os.path.basename(csv_file).split('.')[0])
+
+            except Exception as e:
+                print(e)
+            # 统计下载失败的IP地址
+            if result < 0:
+                print(f"{ip}下载失败")
+                if ip not in failed_ip:
+                    failed_ip.append(ip)
+                item[2] += 1
+            elif result == 1:
+                print('截图成功，准备删除', item)
+                if ip not in success_ip:
+                    success_ip.append(ip)
+                ip_passwd.remove(item)
 
     print(f"总共有{len(failed_ip)}个ip截图失败")
     print(failed_ip)
     print(f'总共成功{len(success_ip)}个ip截图')
     print(success_ip)
+    print('失败次数')
+    print(ip_passwd)
