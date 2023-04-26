@@ -100,8 +100,11 @@ def gen_ip_password_from_csv(file_path, line_count=0):
             next(f)  # 跳过一行
 
         csv_read = csv.reader(f)
-        for cam_ip, cam_pwd in csv_read:
-            yield cam_ip.strip(), cam_pwd.strip()
+        for row in csv_read:
+            # 读取每行的前两列
+            cam_ip = row[0].strip()
+            cam_pwd = row[1].strip()
+            yield cam_ip, cam_pwd
 
 
 if __name__ == "__main__":
@@ -151,6 +154,8 @@ if __name__ == "__main__":
     print(ip_passwd)
 
     # 保存失败的ip记录到文件中
-    with open('failed_'+time.strftime("%Y%m%d%H%M%S", time.localtime())+'.csv','w',newline='') as fp:
+    failed_file = os.path.basename(csv_file).replace('.csv', '') + '_' + time.strftime("%Y%m%d%H%M%S",
+                                                                                       time.localtime()) + '.csv'
+    with open(failed_file, 'w', newline='') as fp:
         csv_writer = csv.writer(fp)
         csv_writer.writerows(ip_passwd)
