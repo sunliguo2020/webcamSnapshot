@@ -21,7 +21,7 @@ import logging
 import os
 import time
 
-from tool import portisopen
+from tool import portisopen, gen_ip_password_from_csv
 
 try:
     import cv2
@@ -87,26 +87,6 @@ def hik_cv2(cam_ip="192.168.1.200", cam_pwd='admin', dir_pre=''):
             return 1
 
 
-def gen_ip_password_from_csv(file_path, line_count=0):
-    """
-    读取csv文件，返回ip，password
-    :param file_path: 要读取的csv文件
-    :param line_count: 跳过前几行
-    :return: ip,password
-    """
-    with open(file_path, encoding='utf-8') as f:
-        # 跳过前几行
-        for i in range(line_count):
-            next(f)  # 跳过一行
-
-        csv_read = csv.reader(f)
-        for row in csv_read:
-            # 读取每行的前两列
-            cam_ip = row[0].strip()
-            cam_pwd = row[1].strip()
-            yield cam_ip, cam_pwd
-
-
 if __name__ == "__main__":
     # 包含ip和密码的csv文件
     csv_file = r'./txt/ruizhi.csv'
@@ -137,8 +117,7 @@ if __name__ == "__main__":
                 print(e)
             # 统计下载失败的IP地址
             if result < 0:
-                print(f"{ip}下载失败")
-
+                print(f"{ip}下载失败{item[2]}次")
                 item[2] += 1
             elif result == 1:
                 print('截图成功，准备删除', item)
