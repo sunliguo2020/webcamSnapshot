@@ -3,6 +3,8 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2022/5/28 12:26
+遗留问题：
+        水印有可能超出图片大小
 """
 import csv
 import logging
@@ -14,7 +16,7 @@ from tool import portisopen, gen_ip_password_from_csv
 
 try:
     import cv2
-except Exception as e:
+except ImportError as e:
     os.system('pip install opencv-python')
     import cv2
 
@@ -24,12 +26,12 @@ logging.basicConfig(filename='cv2.log',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
 
-def cv2_video_capture(cam_ip, password, client=None, dir_pre=None):
+def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, dir_pre=None):
     """
     :param dir_pre: 截图目录的前缀
     :param cam_ip:摄像头IP地址
-    :param password:摄像头密码
-    :param client: 摄像头类型，这里是hik和dahua
+    :param cam_pwd:摄像头密码
+    :param cam_client: 摄像头类型，这里是hik和dahua
     :return:
     """
 
@@ -47,24 +49,29 @@ def cv2_video_capture(cam_ip, password, client=None, dir_pre=None):
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
     pic_dir = os.path.join(dir_pre, time.strftime('%Y-%m-%d', time.localtime()))
 
+    # 截图的文件名和路径
+    snapshot_file_name = cam_ip + '_' + cam_pwd + '_' + cam_client + "_rtsp_" + str_time + ".jpg"
+    snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
+
     if not os.path.isdir(pic_dir):
         os.mkdir(pic_dir)
     logging.debug(f"保存截图的目录:{pic_dir}")
 
+    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
     # 判断是海康还是大华的摄像头
-    if client == 'dahua':
-        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(password, cam_ip))
-    elif client == 'hik':
-        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(password, cam_ip))
+    if cam_client == 'dahua':
+        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(cam_pwd, cam_ip),cv2.CAP_FFMPEG)
+    elif cam_client == 'hik':
+        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(cam_pwd, cam_ip),cv2.CAP_FFMPEG)
     else:
         logging.error("设备类型参数不正确")
         return -1
     # logging.debug(cam)
-    if cam.isOpened():
+    if cam.isOpened(): #判断视频对象是否成功读取成功
+        # 按帧读取视频，返回值ret是布尔型，正确读取则返回True，读取失败或读取视频结尾则会返回False。
+        # frame为每一帧的图像，这里图像是三维矩阵，即frame.shape = (640,480,3)，读取的图像为BGR格式。
         ret, frame = cam.read()
         try:
-            snapshot_file_name = cam_ip + '_' + password + '_' + client + "_rtsp_" + str_time + ".jpg"
-            snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
             # 添加水印信息
             # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
             img2 = cv2.putText(frame, snapshot_file_name.replace('.jpg', ''), (50, 200), cv2.LINE_AA, 2, (100, 255, 0),
@@ -72,6 +79,7 @@ def cv2_video_capture(cam_ip, password, client=None, dir_pre=None):
             retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
             logging.debug(f"ip：{cam_ip},file_name:{snapshot_file_name}下载完成")
+
         except Exception as e:
             logging.error(f"{cam_ip}下载过程中错误！")
             logging.error(f"{cam_ip}" + traceback.format_exc())
