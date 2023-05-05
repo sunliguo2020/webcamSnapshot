@@ -60,22 +60,51 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, dir_pre=None):
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
     # 判断是海康还是大华的摄像头
     if cam_client == 'dahua':
-        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(cam_pwd, cam_ip),cv2.CAP_FFMPEG)
+        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(cam_pwd, cam_ip),
+                               cv2.CAP_FFMPEG)
     elif cam_client == 'hik':
-        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(cam_pwd, cam_ip),cv2.CAP_FFMPEG)
+        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(cam_pwd, cam_ip),
+                               cv2.CAP_FFMPEG)
     else:
         logging.error("设备类型参数不正确")
         return -1
     # logging.debug(cam)
-    if cam.isOpened(): #判断视频对象是否成功读取成功
+    if cam.isOpened():  # 判断视频对象是否成功读取成功
         # 按帧读取视频，返回值ret是布尔型，正确读取则返回True，读取失败或读取视频结尾则会返回False。
         # frame为每一帧的图像，这里图像是三维矩阵，即frame.shape = (640,480,3)，读取的图像为BGR格式。
         ret, frame = cam.read()
         try:
             # 添加水印信息
+            text = snapshot_file_name.replace('.jpg', '')
+            fontFace = cv2.FONT_HERSHEY_SIMPLEX  # 字体
+            line_type = cv2.LINE_AA
+            '''
+            如果对大小约为1000 x 1000的图像使用fontScale = 1，则此代码应正确缩放字体
+            fontScale = (imageWidth * imageHeight) / (1000 * 1000) # Would work best for almost square images
+            '''
+            font_scale = 2  # 比例因子
+            thickness = 2  # 线的粗细
+
+            # 计算文本的宽高 baseline
+            # retval 返回值，元组，字体的宽高 (width, height)
+            retval, base_line = cv2.getTextSize(text, fontFace=fontFace, fontScale=font_scale, thickness=thickness)
+            print(f'retval:{retval},baseLine:{base_line}')
+            print(f'frame.shape:{frame.shape}')
+            img_width = frame.shape[1]
+            text_width = retval[0]
+            # 如果文字的宽带大于图片的宽度，则缩小比例因子
+            if text_width > img_width:
+                font_scale = font_scale * (img_width / text_width) * 0.8
+
             # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
-            img2 = cv2.putText(frame, snapshot_file_name.replace('.jpg', ''), (50, 200), cv2.LINE_AA, 2, (100, 255, 0),
-                               5)
+            # def putText(img, text, org, fontFace, fontScale, color, thickness=None, lineType=None, bottomLeftOrigin=None):
+            # real signature unknown; restored from __doc__
+            # 各参数依次是：图片，添加的文字，左上角坐标，字体，字体大小，颜色，字体粗细
+            # 字体大小，数值越大，字体越大
+            # 字体粗细，越大越粗，数值表示描绘的线条占有的直径像素个数
+            img2 = cv2.putText(frame, text, (0, 200), fontFace, font_scale, (100, 255, 0),
+                               thickness, line_type)
+
             retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
             logging.debug(f"ip：{cam_ip},file_name:{snapshot_file_name}下载完成")
@@ -119,7 +148,7 @@ if __name__ == '__main__':
         ip_passwd.append(temp)
 
     count = 0
-    while ip_passwd[0][2] < 5:
+    while ip_passwd and ip_passwd[0][2] < 5:
         for item in ip_passwd[:]:
 
             ip, password = item[:2]
@@ -149,7 +178,7 @@ if __name__ == '__main__':
 
     # 保存失败的ip记录到文件中
     failed_file = os.path.basename(csv_file).replace('.csv', '') + '_failed_' + time.strftime("%Y%m%d%H%M%S",
-                                                                                       time.localtime()) + '.csv'
+                                                                                              time.localtime()) + '.csv'
     with open(failed_file, 'w', newline='') as fp:
         csv_writer = csv.writer(fp)
         csv_writer.writerows(ip_passwd)
