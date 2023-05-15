@@ -89,7 +89,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, dir_pre=None):
             # retval 返回值，元组，字体的宽高 (width, height)
             retval, base_line = cv2.getTextSize(text, fontFace=fontFace, fontScale=font_scale, thickness=thickness)
             print(f'retval:{retval},baseLine:{base_line}')
-            print(f'frame.shape:{frame.shape}')
+            print(f'font_face.shape:{frame.shape}')
             img_width = frame.shape[1]
             text_width = retval[0]
             # 如果文字的宽带大于图片的宽度，则缩小比例因子
@@ -128,9 +128,24 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, dir_pre=None):
         return -3
 
 
+def save_failed_ip(csv_file_name, failed_ip):
+    """
+    保存采集失败的ip,password到csv文件中
+    :param csv_file_name: 要保存的csv文件
+    :param failed_ip: 包含采集失败的ip,password
+    :return:
+    """
+    # 保存失败的ip记录到文件中
+    failed_file = os.path.basename(csv_file_name).replace('.csv', '') + '_failed_' + time.strftime("%Y%m%d%H%M%S",
+                                                                                              time.localtime()) + '.csv'
+    with open(failed_file, 'w', newline='') as fp:
+        csv_writer = csv.writer(fp)
+        csv_writer.writerows(failed_ip)
+
+
 if __name__ == '__main__':
     # 包含ip和密码的csv文件
-    csv_file = r'./txt/ruizhi.csv'
+    csv_file = r'./fenghua_failed_20230515161253.csv'
     # hik or dahua
     client = 'hik'
 
@@ -167,18 +182,11 @@ if __name__ == '__main__':
                 print('截图成功，准备删除', item)
                 if ip not in success_ip:
                     success_ip.append(ip)
-
                 # 删除这条ip
                 ip_passwd.remove(item)
 
     print(f'总共成功{len(success_ip)}个ip截图')
 
     print(f'最后还有{len(ip_passwd)}个ip截图失败')
-    print(ip_passwd)
 
-    # 保存失败的ip记录到文件中
-    failed_file = os.path.basename(csv_file).replace('.csv', '') + '_failed_' + time.strftime("%Y%m%d%H%M%S",
-                                                                                              time.localtime()) + '.csv'
-    with open(failed_file, 'w', newline='') as fp:
-        csv_writer = csv.writer(fp)
-        csv_writer.writerows(ip_passwd)
+    save_failed_ip(csv_file, ip_passwd)
