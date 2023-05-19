@@ -21,7 +21,7 @@ except ImportError as e:
     import cv2
 
 logging.basicConfig(filename='cv2.log',
-                    level=logging.ERROR,
+                    level=logging.DEBUG,
                     filemode='w',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
@@ -69,7 +69,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, dir_pre=None):
     else:
         logging.error("设备类型参数不正确")
         return -1
-
+    logging.debug(f'摄像头类型{cam_client}')
     # logging.debug(cam)
     if cam.isOpened():  # 判断视频对象是否成功读取成功
         # 按帧读取视频，返回值ret是布尔型，正确读取则返回True，读取失败或读取视频结尾则会返回False。
@@ -77,6 +77,8 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, dir_pre=None):
         ret, frame = cam.read()
         try:
             # 添加水印信息
+            text_watermark_x = 0
+            text_watermark_y = 200
             text = snapshot_file_name.replace('.jpg', '')
             font_face = cv2.FONT_HERSHEY_SIMPLEX  # 字体
             line_type = cv2.LINE_AA
@@ -90,14 +92,17 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, dir_pre=None):
             # 计算文本的宽高 baseline
             # retval 返回值，元组，字体的宽高 (width, height)
             retval, base_line = cv2.getTextSize(text, fontFace=font_face, fontScale=font_scale, thickness=thickness)
-            print(f'retval:{retval},baseLine:{base_line}')
-            print(f'font_face.shape:{frame.shape}')
+            # print(f'retval:{retval},baseLine:{base_line}')
+            # print(f'font_face.shape:{frame.shape}')
             img_width = frame.shape[1]
-            img_hight= frame.shape[0]
+            img_hight = frame.shape[0]
+            logging.debug(f"截图的宽x高:{img_width}x{img_hight}")
             text_width = retval[0]
             # 如果文字的宽带大于图片的宽度，则缩小比例因子
             if text_width > img_width:
                 font_scale = font_scale * (img_width / text_width) * 0.8
+                text_watermark_y = int(img_width * 0.1)  # 水印的新y坐标
+                logging.debug(f"水印Y坐标值为:{text_watermark_y}")
 
             # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
             # def putText(img, text, org, fontFace, fontScale, color, thickness=None, lineType=None, bottomLeftOrigin=None):
@@ -105,7 +110,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, dir_pre=None):
             # 各参数依次是：图片，添加的文字，左上角坐标，字体，字体大小，颜色，字体粗细
             # 字体大小，数值越大，字体越大
             # 字体粗细，越大越粗，数值表示描绘的线条占有的直径像素个数
-            img2 = cv2.putText(frame, text, (0, img_hight*0.1), font_face, font_scale, (100, 255, 0),
+            img2 = cv2.putText(frame, text, (text_watermark_x, text_watermark_y), font_face, font_scale, (100, 255, 0),
                                thickness, line_type)
 
             retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
@@ -135,7 +140,7 @@ def save_failed_ip(csv_file_name, failed_ip):
     """
     保存采集失败的ip,password到csv文件中
     :param csv_file_name: 要保存的csv文件
-    :param failed_ip: 包含采集失败的ip,password
+    :param failed_ip: 包含采集失败的ip,password的列表
     :return:
     """
     # 保存失败的ip记录到文件中
@@ -146,13 +151,17 @@ def save_failed_ip(csv_file_name, failed_ip):
         csv_writer.writerows(failed_ip)
 
 
-if __name__ == '__main__':
-    # 包含ip和密码的csv文件
-    csv_file = r'./txt/ruizhi.csv'
-    # hik or dahua
-    client = 'hik'
+def cams_capture(csv_file, client=None):
+    """
 
-    success_ip = []
+    :param csv_file: # 包含ip和密码的csv文件
+    :param client: 摄像头类型 hik, dahua
+    :return:
+    """
+    if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[1] != '.csv':
+        return -1
+
+    success_ip = []  # 采集成功的ip
     # 列表的格式
     # ip,password,截取的次数(初始为0)
     # 成功的剔除,失败的增加次数。次数超过一定的数则退出。
@@ -192,3 +201,7 @@ if __name__ == '__main__':
     print(f'总共成功{len(success_ip)}个ip截图,{len(ip_passwd)}个ip截图失败')
 
     save_failed_ip(csv_file, ip_passwd)
+
+
+if __name__ == '__main__':
+    cams_capture('./txt/ruizhi.csv', 'hik')
