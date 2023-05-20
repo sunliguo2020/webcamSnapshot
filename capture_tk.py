@@ -25,7 +25,7 @@ def select_files():
 def select_folder():
     # 文件夹选择
     selected_folder = filedialog.askdirectory()  # 使用askdirectory函数选择文件夹
-    select_path.set(selected_folder)
+    select_dir.set(selected_folder)
 
 
 def start_cap():
@@ -34,18 +34,19 @@ def start_cap():
     client_type = numberChosen.get()
     print(client_type)
     if client_type == '海康':
-        cams_capture(csv_file, client='hik')
+        cams_capture(csv_file, client='hik', save_dir=dir_entry.get())
     elif client_type == '大华':
-        cams_capture(csv_file,client='dahua')
+        cams_capture(csv_file,client='dahua',save_dir=dir_entry.get())
 
 
 root = tk.Tk()
-root.title('采集摄像头截图')
+root.title('摄像头截图采集小工具')
 
 root.geometry('800x700+300+200')  # 定义窗口显示大小和显示位置
 
 # 初始化Entry控件的text variable属性值
 select_path = tk.StringVar()
+select_dir = tk.StringVar()
 
 # 布局空间
 csv_file_label = tk.Label(root, text='文件路径:')
@@ -54,7 +55,7 @@ csv_file_label.grid(column=0, row=0, rowspan=3)
 csv_entry = tk.Entry(root, textvariable=select_path)
 csv_entry.grid(column=1, row=0, rowspan=3)
 
-tk.Button(root, text="选择单个文件", command=select_file).grid(row=0, column=2)
+tk.Button(root, text="选择csv文件", command=select_file).grid(row=0, column=2)
 # tk.Button(root, text="选择多个文件", command=select_files).grid(row=1, column=2)
 # tk.Button(root, text="选择文件夹", command=select_folder).grid(row=2, column=2)
 
@@ -65,6 +66,14 @@ numberChosen = ttk.Combobox(root,state='readonly', width=12, textvariable=number
 numberChosen['values'] = ('海康', '大华')  # 设置下拉列表的值
 numberChosen.grid(column=1, row=5)  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
+
+# 截图保存目录
+cap_dir_label = tk.Label(root,text='截图保存位置:')
+cap_dir_label.grid(row=6,column=0,rowspan=3)
+
+dir_entry = tk.Entry(root, textvariable=select_dir)
+dir_entry.grid(column=1, row=7, rowspan=3)
+tk.Button(root, text="浏览", command=select_folder).grid(row=7, column=2)
 
 # 采集按钮
 capture_button = tk.Button(root, text='开始采集', bg='lightblue', width=10, command=start_cap)
