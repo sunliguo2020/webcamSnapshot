@@ -167,7 +167,7 @@ def cams_capture(csv_file, client=None, save_dir=None):
     if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[1] != '.csv':
         return -1
     if not save_dir:
-        save_dir = os.path.join(os.path.dirname(csv_file),os.path.basename(csv_file).split('.')[0])
+        save_dir = os.path.join(os.getcwd(),os.path.basename(csv_file).split('.')[0])
         print(f"save_dir:{save_dir}")
 
     success_ip = []  # 采集成功的ip
