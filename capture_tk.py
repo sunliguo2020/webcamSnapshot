@@ -4,7 +4,7 @@
 @contact: QQ376440229
 @Created on: 2023-05-19 18:13
 摄像头批量截图的图形界面
-
+pyinstaller -F -w -i cam_capture.ico capture_tk.py -n 摄像头批量截图
 
 """
 import logging
@@ -109,7 +109,7 @@ capture_button.grid(row=8, column=3)
 
 # 日志框
 
-log_data_text = LoggerBox(root, width=50, height=80)
+log_data_text = LoggerBox(root, width=50, height=20)
 log_data_text.grid(row=10, column=0, columnspan=4, rowspan=4, padx=(10, 0))
 # log1 = logging.getLogger('log1')
 log1 = logging.getLogger()
