@@ -23,7 +23,7 @@ except ImportError as e:
 logging.basicConfig(filename='cv2.log',
                     level=logging.DEBUG,
                     filemode='w',
-                    format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
+                    format='%(asctime)s-%(name)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
 
 def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
@@ -128,7 +128,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
 
     except Exception as e:
         logging.error(f"{cam_ip}下载过程中错误！")
-        logging.error(f"{cam_ip}" + traceback.format_exc())
+        # logging.error(f"{cam_ip}" + traceback.format_exc())
     finally:
         cam.release()
         cv2.destroyAllWindows()
@@ -158,7 +158,6 @@ def save_failed_ip(csv_file_name, failed_ip):
 
 def cams_capture(csv_file, client=None, save_dir=None):
     """
-
     :param save_dir: 保存截图的目录
     :param csv_file: # 包含ip和密码的csv文件
     :param client: 摄像头类型 hik, dahua
@@ -167,8 +166,8 @@ def cams_capture(csv_file, client=None, save_dir=None):
     if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[1] != '.csv':
         return -1
     if not save_dir:
-        save_dir = os.path.join(os.getcwd(),os.path.basename(csv_file).split('.')[0])
-        print(f"save_dir:{save_dir}")
+        save_dir = os.path.join(os.getcwd(), os.path.basename(csv_file).split('.')[0])
+        logging.debug(f"save_dir:{save_dir}")
 
     success_ip = []  # 采集成功的ip
     # 列表的格式
@@ -186,24 +185,22 @@ def cams_capture(csv_file, client=None, save_dir=None):
     count = 0
     while ip_passwd and ip_passwd[0][2] < 5:
         for item in ip_passwd[:]:
-
             ip, password = item[:2]
             count += 1
-            print(count, ":", ip)
+            logging.debug(f"{count}:{ip}")
             try:
                 # 截图并保存
                 result = cv2_video_capture(ip, password, client, save_dir)
             except Exception as e:
-
-                print(f"截图过程中出错:{e}")
+                logging.error(f"截图过程中出错:{e}")
                 item[2] += 1
             else:
                 # 统计下载失败的IP地址
                 if result < 0:
-                    print(f"{ip}下载失败{item[2]}次")
+                    logging.info(f"{ip}下载失败{item[2]}次")
                     item[2] += 1
                 elif result == 1:
-                    print('截图成功，准备删除', item)
+                    logging.debug('截图成功，准备删除', item)
                     if ip not in success_ip:
                         success_ip.append(ip)
                     # 删除这条ip
@@ -211,7 +208,7 @@ def cams_capture(csv_file, client=None, save_dir=None):
             finally:
                 pass
 
-    print(f'总共成功{len(success_ip)}个ip截图,{len(ip_passwd)}个ip截图失败')
+    logging.debug(f'总共成功{len(success_ip)}个ip截图,{len(ip_passwd)}个ip截图失败')
 
     save_failed_ip(csv_file, ip_passwd)
 
