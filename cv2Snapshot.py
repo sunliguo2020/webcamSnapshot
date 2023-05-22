@@ -3,14 +3,12 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2022/5/28 12:26
-遗留问题：
-        水印有可能超出图片大小
+
 """
 import csv
 import logging
 import os
 import time
-import traceback
 
 from tool import portisopen, gen_ip_password_from_csv
 
