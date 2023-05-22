@@ -6,20 +6,13 @@
 摄像头批量截图的图形界面
 
 
-
 """
 import logging
 import os.path
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, ttk, scrolledtext
 
 from cv2Snapshot import cams_capture
-
-
-# # logging.basicConfig(filename='cv2.log',
-#                     level=logging.DEBUG,
-#                     filemode='w',
-#                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 
 
 def select_file():
@@ -45,6 +38,8 @@ def start_cap():
     开始采集的按钮绑定的程序
     :return:
     """
+    # 清空日志区
+    log_data_text.delete(0.0, 'end')
     # csv 文件的路径
     csv_file = csv_entry.get()
     # 摄像头类型
@@ -56,6 +51,7 @@ def start_cap():
     if not os.path.isfile(csv_file):
         log1.error(f'请重新选择包含ip,password的文件!')
         raise ValueError('请重新选择包含ip,password的文件!')
+
     log1.info(f'摄像头类型：{client_type}')
     log1.info(f'截图保存路径：{save_dir}')
 
@@ -65,7 +61,7 @@ def start_cap():
         cams_capture(csv_file, client='dahua', save_dir=save_dir)
 
 
-class LoggerBox(tk.Text):
+class LoggerBox(scrolledtext.ScrolledText):
 
     def write(self, message):
         self.insert("end", message)
@@ -82,7 +78,7 @@ select_dir = tk.StringVar()
 
 # 布局空间
 csv_file_label = tk.Label(root, text='文件路径:', font='微软雅黑 12')
-csv_file_label.grid(column=0, row=0,padx=(10,0),sticky='w')
+csv_file_label.grid(column=0, row=0, padx=(10, 0), sticky='w')
 
 csv_entry = tk.Entry(root, textvariable=select_path)
 csv_entry.grid(column=1, row=0)
@@ -94,17 +90,17 @@ tk.Button(root, text="浏览", command=select_file).grid(row=0, column=3)
 # 创建一个下拉列表
 tk.Label(root, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=1)
 number = tk.StringVar()
-numberChosen = ttk.Combobox(root, state='readonly', width=12,height=12, textvariable=number)
+numberChosen = ttk.Combobox(root, state='readonly', width=12, height=12, textvariable=number)
 numberChosen['values'] = ('海康', '大华')  # 设置下拉列表的值
-numberChosen.grid(column=1, row=1,sticky='w')  # 设置其在界面中出现的位置  column代表列   row 代表行
+numberChosen.grid(column=1, row=1, sticky='w')  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
 
 # 截图保存目录
 cap_dir_label = tk.Label(root, text='截图保存位置:', font='微软雅黑 12')
-cap_dir_label.grid(row=2, column=0,sticky='w',padx=(10,0))
+cap_dir_label.grid(row=2, column=0, sticky='w', padx=(10, 0))
 
 dir_entry = tk.Entry(root, textvariable=select_dir)
-dir_entry.grid(column=1, row=2,sticky='e')
+dir_entry.grid(column=1, row=2, sticky='e')
 tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
 
 # 采集按钮
@@ -114,9 +110,10 @@ capture_button.grid(row=8, column=3)
 # 日志框
 
 log_data_text = LoggerBox(root, width=50, height=80)
-log_data_text.grid(row=10, column=0, columnspan=4,rowspan=4,padx=(10,0))
-log1 = logging.getLogger('log1')
-log1.setLevel(logging.INFO)
+log_data_text.grid(row=10, column=0, columnspan=4, rowspan=4, padx=(10, 0))
+# log1 = logging.getLogger('log1')
+log1 = logging.getLogger()
+log1.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(log_data_text)
 log1.addHandler(handler)
 
