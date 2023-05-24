@@ -18,11 +18,31 @@ except ImportError as e:
     os.system('pip install opencv-python')
     import cv2
 
-logging.basicConfig(filename='cv2.log',
-                    level=logging.DEBUG,
-                    filemode='w',
-                    format='%(asctime)s-%(name)s-%(filename)s[line:%(lineno)d]-%(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
+logfile = './cv2.log'
+fh = logging.FileHandler(logfile, mode='a')
+fh.setLevel(logging.DEBUG)
+
+# 输出到控制台
+ch = logging.StreamHandler()
+ch.setLevel(logging.WARNING)
+
+# 定义handler的输出格式
+formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+
+logger.addHandler(fh)
+logger.addHandler(ch)
+
+
+# logging.basicConfig(filename='cv2.log',
+#                     level=logging.DEBUG,
+#                     filemode='w',
+#                     format='%(asctime)s-%(name)s-%(filename)s[line:%(lineno)d]-%(message)s')
+#
 
 def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
     """
@@ -38,9 +58,9 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
 
     # 判断rtsp协议的554端口有没有打开。
     port_open_result = portisopen(cam_ip, 554)
-    logging.debug(f"判断{cam_ip}端口是否打开{type(port_open_result)},{port_open_result}")
+    logger.debug(f"判断{cam_ip}端口是否打开{type(port_open_result)},{port_open_result}")
     if not port_open_result:
-        logging.debug(f"{cam_ip} 554 端口没有打开或者网络不通")
+        logger.debug(f"{cam_ip} 554 端口没有打开或者网络不通")
         return -1
 
     # 保存截图的目录  运行程序的日期为目录名
@@ -53,7 +73,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
 
     if not os.path.isdir(pic_dir):
         os.mkdir(pic_dir)
-    logging.debug(f"保存截图的目录:{pic_dir}")
+    logger.debug(f"保存截图的目录:{pic_dir}")
 
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
 
@@ -66,12 +86,12 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
             cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(cam_pwd, cam_ip),
                                    cv2.CAP_FFMPEG)
         except Exception as e:
-            logging.debug(f"cv2.VideoCapture faile{e}")
+            logger.debug(f"cv2.VideoCapture faile{e}")
     else:
-        logging.error("设备类型参数不正确")
+        logger.error("设备类型参数不正确")
         return -1
-    logging.debug(f'摄像头类型{cam_client}')
-    # logging.debug(cam)
+    logger.debug(f'摄像头类型{cam_client}')
+    # logger.debug(cam)
     # 判断视频对象是否成功读取成功
     if not cam.isOpened():
         raise ValueError("Could not open camera.")
@@ -103,13 +123,13 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
         # print(f'font_face.shape:{frame.shape}')
         img_width = frame.shape[1]
         img_hight = frame.shape[0]
-        logging.debug(f"截图的宽x高:{img_width}x{img_hight}")
+        logger.debug(f"截图的宽x高:{img_width}x{img_hight}")
         text_width = retval[0]
         # 如果文字的宽带大于图片的宽度，则缩小比例因子
         if text_width > img_width:
             font_scale = font_scale * (img_width / text_width) * 0.8
             text_watermark_y = int(img_width * 0.1)  # 水印的新y坐标
-            logging.debug(f"水印Y坐标值为:{text_watermark_y}")
+            logger.debug(f"水印Y坐标值为:{text_watermark_y}")
 
         # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
         # def putText(img, text, org, fontFace, fontScale, color, thickness=None, lineType=None, bottomLeftOrigin=None):
@@ -122,20 +142,20 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
 
         retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
-        logging.debug(f"ip：{cam_ip},file_name:{snapshot_file_name}下载完成")
+        logger.debug(f"ip：{cam_ip},file_name:{snapshot_file_name}下载完成")
 
     except Exception as e:
-        logging.error(f"{cam_ip}下载过程中错误！")
-        # logging.error(f"{cam_ip}" + traceback.format_exc())
+        logger.error(f"{cam_ip}下载过程中错误！")
+        # logger.error(f"{cam_ip}" + traceback.format_exc())
     finally:
         cam.release()
         cv2.destroyAllWindows()
         # 判断是否下载成功
         if not os.path.isfile(snapshot_full_path):
-            logging.info(f'{cam_ip}保存截图失败')
+            logger.info(f'{cam_ip}保存截图失败')
             return -2
         else:
-            logging.info(f"{cam_ip}保存截图成功")
+            logger.info(f"{cam_ip}保存截图成功")
             return 1
 
 
@@ -165,7 +185,7 @@ def cams_capture(csv_file, client=None, save_dir=None):
         return -1
     if not save_dir:
         save_dir = os.path.join(os.getcwd(), os.path.basename(csv_file).split('.')[0])
-        logging.debug(f"save_dir:{save_dir}")
+        logger.debug(f"save_dir:{save_dir}")
 
     success_ip = []  # 采集成功的ip
     # 列表的格式
@@ -185,20 +205,20 @@ def cams_capture(csv_file, client=None, save_dir=None):
         for item in ip_passwd[:]:
             ip, password = item[:2]
             count += 1
-            logging.debug(f"{count}:{ip}")
+            logger.debug(f"{count}:{ip}")
             try:
                 # 截图并保存
                 result = cv2_video_capture(ip, password, client, save_dir)
             except Exception as e:
-                logging.error(f"截图过程中出错:{e}")
+                logger.error(f"截图过程中出错:{e}")
                 item[2] += 1
             else:
                 # 统计下载失败的IP地址
                 if result < 0:
-                    logging.info(f"{ip}下载失败{item[2]}次")
+                    logger.info(f"{ip}下载失败{item[2]}次")
                     item[2] += 1
                 elif result == 1:
-                    logging.debug('截图成功，准备删除', item)
+                    logger.debug('截图成功，准备删除', item)
                     if ip not in success_ip:
                         success_ip.append(ip)
                     # 删除这条ip
@@ -206,7 +226,7 @@ def cams_capture(csv_file, client=None, save_dir=None):
             finally:
                 pass
 
-    logging.debug(f'总共成功{len(success_ip)}个ip截图,{len(ip_passwd)}个ip截图失败')
+    logger.debug(f'总共成功{len(success_ip)}个ip截图,{len(ip_passwd)}个ip截图失败')
 
     save_failed_ip(csv_file, ip_passwd)
 
