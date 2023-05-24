@@ -111,10 +111,12 @@ capture_button.grid(row=8, column=3)
 
 log_data_text = LoggerBox(root, width=50, height=20)
 log_data_text.grid(row=10, column=0, columnspan=4, rowspan=4, padx=(10, 0))
-# log1 = logging.getLogger('log1')
+
 log1 = logging.getLogger()
 log1.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(log_data_text)
+formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
+handler.setFormatter(formatter)
 log1.addHandler(handler)
 
 root.mainloop()
