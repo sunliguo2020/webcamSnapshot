@@ -139,9 +139,9 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
         # 字体粗细，越大越粗，数值表示描绘的线条占有的直径像素个数
         img2 = cv2.putText(frame, text, (text_watermark_x, text_watermark_y), font_face, font_scale, (100, 255, 0),
                            thickness, line_type)
-
-        retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-
+        # 保存路径中包含中文的问题
+        # retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        retval =  cv2.imencode(".jpg", img2)[1].tofile(snapshot_full_path)
         logger.debug(f"ip：{cam_ip},file_name:{snapshot_file_name}下载完成")
 
     except Exception as e:
@@ -218,7 +218,7 @@ def cams_capture(csv_file, client=None, save_dir=None):
                     logger.info(f"{ip}下载失败{item[2]}次")
                     item[2] += 1
                 elif result == 1:
-                    logger.debug('截图成功，准备删除', item)
+                    logger.debug(f'截图成功，准备删除{item}', )
                     if ip not in success_ip:
                         success_ip.append(ip)
                     # 删除这条ip
