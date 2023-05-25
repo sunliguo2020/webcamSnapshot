@@ -39,7 +39,7 @@ def start_cap():
     :return:
     """
     # 清空日志区
-    log_data_text.delete(0.0, 'end')
+    # log_data_text.delete(0.0, 'end')
     # csv 文件的路径
     csv_file = csv_entry.get()
     # 摄像头类型
@@ -49,11 +49,11 @@ def start_cap():
     save_dir = dir_entry.get()
 
     if not os.path.isfile(csv_file):
-        log1.error(f'请重新选择包含ip,password的文件!')
+        logging.error(f'请重新选择包含ip,password的文件!')
         raise ValueError('请重新选择包含ip,password的文件!')
 
-    log1.info(f'摄像头类型：{client_type}')
-    log1.info(f'截图保存路径：{save_dir}')
+    logging.info(f'摄像头类型：{client_type}')
+    logging.info(f'截图保存路径：{save_dir}')
 
     if client_type == '海康':
         cams_capture(csv_file, client='hik', save_dir=save_dir)
@@ -62,6 +62,14 @@ def start_cap():
 
 
 class LoggerBox(scrolledtext.ScrolledText):
+    """
+    思路一：以tk.Text为父类创建一个新的类，增加相关的功能以适配 StreamHandler。
+    在创建StreamHandler时作为参数传入。
+    实现：参考sys.stdout，因为StreamHandler(stream) 常规用法是把sys.stdout作为参数传进去的，
+    查看StreamHandler源码见到其实就是在里面调用了sys.stdout的write()方法，即相当于print()。
+    给新的类添加write()方法就可以了
+
+    """
 
     def write(self, message):
         self.insert("end", message)
@@ -107,16 +115,62 @@ tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
 capture_button = tk.Button(root, text='开始采集', bg='lightblue', width=10, command=start_cap)
 capture_button.grid(row=8, column=3)
 
+
 # 日志框
 
-log_data_text = LoggerBox(root, width=50, height=20)
-log_data_text.grid(row=10, column=0, columnspan=4, rowspan=4, padx=(10, 0))
+# log_data_text = LoggerBox(root, width=66, height=20)
+# log_data_text.grid(row=10, column=0, columnspan=10, rowspan=4, padx=(10, 10), pady=(10, 10))
+#
+# log1 = logging.getLogger()
+# log1.setLevel(logging.DEBUG)
+# handler = logging.StreamHandler(log_data_text)
+# formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
+# handler.setFormatter(formatter)
+# log1.addHandler(handler)
 
-log1 = logging.getLogger()
-log1.setLevel(logging.DEBUG)
-handler = logging.StreamHandler(log_data_text)
-formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
-handler.setFormatter(formatter)
-log1.addHandler(handler)
+
+# 从网上搜到的代码
+# 思路二：构造一个新的Handler类，可以支持直接把tk.Text控件作为参数传入。
+#
+# 查了一下，发现各种handler最核心就是里面的 def emit(self, record) 这个函数，它确定了在哪里输出。重写emit函数即可。
+# Define a new logging handler class which inherits the logging.Handler class
+
+class widgetLogger(logging.Handler):
+    # The init function needs the widget which will hold the log messages passed to it as
+    # well as other basic information (log level, format, etc.)
+
+    def __init__(self, widget, logLevel, format):
+        logging.Handler.__init__(self)
+
+        # Basic logging configuration
+        self.setLevel(logLevel)
+        self.setFormatter(logging.Formatter(format))
+        self.widget = widget
+
+        # The ScrolledText box must be disabled so users can't enter their own text
+        self.widget.config(state='disabled')
+
+    # This function is called when a log message is to be handled
+    def emit(self, record):
+        # Enable the widget to allow new text to be inserted
+        self.widget.config(state='normal')
+
+        # Append log message to the widget
+        self.widget.insert('insert', str(self.format(record) + '\n'))
+
+        # Scroll down to the bottom of the ScrolledText box to ensure the latest log message
+        # is visible
+        self.widget.see("end")
+
+        # Re-disable the widget to prevent users from entering text
+        self.widget.config(state='disabled')
+
+
+logWidget = scrolledtext.ScrolledText(root, width=66, height=20)
+logWidget.grid(row=10, column=0, columnspan=10, rowspan=4, padx=(10, 10), pady=(10, 10))
+
+logFormatStr = '%(asctime)s - %(threadName)s - %(funcName)s  - %(levelname)-8s %(message)s'
+guiLogger = widgetLogger(logWidget, logging.DEBUG, format=logFormatStr)
+logging.getLogger().addHandler(guiLogger)
 
 root.mainloop()
