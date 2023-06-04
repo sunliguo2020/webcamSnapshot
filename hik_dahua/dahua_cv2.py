@@ -39,7 +39,7 @@ rtsp://admin:admin@10.12.4.84:554/cam/realmonitor?channel=2&subtype=1
 import logging
 
 logging.basicConfig(filename='dahua_cv2.log',
-                    level=logging.debug,
+                    level=logging.DEBUG,
                     filemode='a',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 import os
