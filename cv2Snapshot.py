@@ -18,31 +18,25 @@ except ImportError as e:
     os.system('pip install opencv-python')
     import cv2
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-logfile = './cv2.log'
-fh = logging.FileHandler(logfile, mode='a')
-fh.setLevel(logging.DEBUG)
+# logfile = './cv2.log'
+# fh = logging.FileHandler(logfile, mode='a')
+# fh.setLevel(logging.DEBUG)
 
 # 输出到控制台
-ch = logging.StreamHandler()
-ch.setLevel(logging.WARNING)
+# ch = logging.StreamHandler()
+# ch.setLevel(logging.DEBUG)
 
 # 定义handler的输出格式
-formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
-
-logger.addHandler(fh)
-logger.addHandler(ch)
-
-
-# logging.basicConfig(filename='cv2.log',
-#                     level=logging.DEBUG,
-#                     filemode='w',
-#                     format='%(asctime)s-%(name)s-%(filename)s[line:%(lineno)d]-%(message)s')
+# formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
+# fh.setFormatter(formatter)
+# ch.setFormatter(formatter)
 #
+# logger.addHandler(fh)
+# logger.addHandler(ch)
+
 
 def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
     """
@@ -54,11 +48,12 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
     """
 
     if not os.path.isdir(save_dir):
-        os.mkdir(save_dir)
+        os.makedirs(save_dir)
 
     # 判断rtsp协议的554端口有没有打开。
     port_open_result = portisopen(cam_ip, 554)
-    logger.debug(f"判断{cam_ip}端口是否打开{type(port_open_result)},{port_open_result}")
+    logger.debug(f"判断{cam_ip}端口是否打开:{port_open_result}")
+
     if not port_open_result:
         logger.debug(f"{cam_ip} 554 端口没有打开或者网络不通")
         return -1
@@ -72,7 +67,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
     snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
 
     if not os.path.isdir(pic_dir):
-        os.mkdir(pic_dir)
+        os.makedirs(pic_dir)
     logger.debug(f"保存截图的目录:{pic_dir}")
 
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
@@ -86,12 +81,12 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
             cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(cam_pwd, cam_ip),
                                    cv2.CAP_FFMPEG)
         except Exception as e:
-            logger.debug(f"cv2.VideoCapture faile{e}")
+            logger.debug(f"cv2.VideoCapture failed{e}")
     else:
         logger.error("设备类型参数不正确")
         return -1
     logger.debug(f'摄像头类型{cam_client}')
-    # logger.debug(cam)
+
     # 判断视频对象是否成功读取成功
     if not cam.isOpened():
         raise ValueError("Could not open camera.")
@@ -106,7 +101,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
         # 添加水印信息
         text_watermark_x = 0
         text_watermark_y = 200
-        text = snapshot_file_name.replace('.jpg', '')
+        water_text = snapshot_file_name.replace('.jpg', '')
         font_face = cv2.FONT_HERSHEY_SIMPLEX  # 字体
         line_type = cv2.LINE_AA
         '''
@@ -118,7 +113,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
 
         # 计算文本的宽高 baseline
         # retval 返回值，元组，字体的宽高 (width, height)
-        retval, base_line = cv2.getTextSize(text, fontFace=font_face, fontScale=font_scale, thickness=thickness)
+        retval, base_line = cv2.getTextSize(water_text, fontFace=font_face, fontScale=font_scale, thickness=thickness)
         # print(f'retval:{retval},baseLine:{base_line}')
         # print(f'font_face.shape:{frame.shape}')
         img_width = frame.shape[1]
@@ -132,16 +127,16 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
             logger.debug(f"水印Y坐标值为:{text_watermark_y}")
 
         # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
-        # def putText(img, text, org, fontFace, fontScale, color, thickness=None, lineType=None, bottomLeftOrigin=None):
+        # def putText(img, water_text, org, fontFace, fontScale, color, thickness=None, lineType=None, bottomLeftOrigin=None):
         # real signature unknown; restored from __doc__
         # 各参数依次是：图片，添加的文字，左上角坐标，字体，字体大小，颜色，字体粗细
         # 字体大小，数值越大，字体越大
         # 字体粗细，越大越粗，数值表示描绘的线条占有的直径像素个数
-        img2 = cv2.putText(frame, text, (text_watermark_x, text_watermark_y), font_face, font_scale, (100, 255, 0),
+        img2 = cv2.putText(frame, water_text, (text_watermark_x, text_watermark_y), font_face, font_scale, (100, 255, 0),
                            thickness, line_type)
         # 保存路径中包含中文的问题
         # retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-        retval =  cv2.imencode(".jpg", img2)[1].tofile(snapshot_full_path)
+        retval = cv2.imencode(".jpg", img2)[1].tofile(snapshot_full_path)
         logger.debug(f"ip：{cam_ip},file_name:{snapshot_file_name}下载完成")
 
     except Exception as e:
