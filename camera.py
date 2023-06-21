@@ -58,8 +58,6 @@ class Camera:
 
         # 文件路径中不包含中文
         # cv2.imwrite(self.file_name, frame)  # 存储为图像
-        # 文件路径中包含中文
-        # img_write = cv2.imencode(".jpg", frame)[1].tofile(self.file_name)
         newframe = self.watermark(frame)
         img_write = cv2.imencode(".jpg", newframe)[1].tofile(self.file_full_path)
 
@@ -102,3 +100,6 @@ class Camera:
 if __name__ == '__main__':
     cam1 = Camera('192.168.1.111', password='FYKWXY', camera_type='hik')
     cam1.capture()
+    print(dir(cam1))
+    print(id(cam1.ip))
+    print(id('192.168.1.111'))
