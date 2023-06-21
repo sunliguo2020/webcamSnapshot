@@ -21,22 +21,6 @@ except ImportError as e:
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-# logfile = './cv2.log'
-# fh = logging.FileHandler(logfile, mode='a')
-# fh.setLevel(logging.DEBUG)
-
-# 输出到控制台
-# ch = logging.StreamHandler()
-# ch.setLevel(logging.DEBUG)
-
-# 定义handler的输出格式
-# formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
-# fh.setFormatter(formatter)
-# ch.setFormatter(formatter)
-#
-# logger.addHandler(fh)
-# logger.addHandler(ch)
-
 
 def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
     """
@@ -114,8 +98,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
         # 计算文本的宽高 baseline
         # retval 返回值，元组，字体的宽高 (width, height)
         retval, base_line = cv2.getTextSize(water_text, fontFace=font_face, fontScale=font_scale, thickness=thickness)
-        # print(f'retval:{retval},baseLine:{base_line}')
-        # print(f'font_face.shape:{frame.shape}')
+
         img_width = frame.shape[1]
         img_hight = frame.shape[0]
         logger.debug(f"截图的宽x高:{img_width}x{img_hight}")
@@ -132,7 +115,8 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
         # 各参数依次是：图片，添加的文字，左上角坐标，字体，字体大小，颜色，字体粗细
         # 字体大小，数值越大，字体越大
         # 字体粗细，越大越粗，数值表示描绘的线条占有的直径像素个数
-        img2 = cv2.putText(frame, water_text, (text_watermark_x, text_watermark_y), font_face, font_scale, (100, 255, 0),
+        img2 = cv2.putText(frame, water_text, (text_watermark_x, text_watermark_y), font_face, font_scale,
+                           (100, 255, 0),
                            thickness, line_type)
         # 保存路径中包含中文的问题
         # retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
@@ -177,16 +161,13 @@ def cams_capture(csv_file, client=None, save_dir=None):
     :return:
     """
     if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[1] != '.csv':
+        logger.error('必须是csv格式的文件！')
         return -1
     if not save_dir:
         save_dir = os.path.join(os.getcwd(), os.path.basename(csv_file).split('.')[0])
         logger.debug(f"save_dir:{save_dir}")
 
     success_ip = []  # 采集成功的ip
-    # 列表的格式
-    # ip,password,截取的次数(初始为0)
-    # 成功的剔除,失败的增加次数。次数超过一定的数则退出。
-    # [[ip,password,number of time],[],...]
     ip_passwd = []
 
     # 初始化要截图的ip,passwd,密码
