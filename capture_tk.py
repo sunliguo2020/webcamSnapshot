@@ -14,10 +14,9 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import filedialog, scrolledtext
+from tkinter import filedialog
 from tkinter import ttk, N, S, E, W
 from tkinter.scrolledtext import ScrolledText
-
 
 logger = logging.getLogger()
 logger.setLevel(level=logging.DEBUG)
@@ -46,7 +45,7 @@ class LogWidget:
         # Create a ScrolledText wdiget
         self.scrolled_text = ScrolledText(frame, state='disabled', height=20)
         self.scrolled_text.grid(row=10, column=0, sticky=(N, S, W, E))
-        self.scrolled_text.configure(font='TkFixedFont')
+        self.scrolled_text.configure(font=('宋体', '10'))
         self.scrolled_text.tag_config('INFO', foreground='black')
         self.scrolled_text.tag_config('DEBUG', foreground='gray')
         self.scrolled_text.tag_config('WARNING', foreground='orange')
@@ -55,8 +54,7 @@ class LogWidget:
         # Create a logging handler using a queue
         self.log_queue = queue.Queue()
         self.queue_handler = QueueHandler(self.log_queue)
-        # formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
-        formatter = logging.Formatter('%(asctime)s-%(levelname)s:%(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
         self.queue_handler.setFormatter(formatter)
         logger.addHandler(self.queue_handler)
 
@@ -133,8 +131,8 @@ def select_folder():
 
 
 root = tk.Tk()
-root.title('摄像头截图采集小工具')
-root.geometry('650x550+300+200')  # 定义窗口显示大小和显示位置
+root.title('网络摄像头截图采集小工具')
+root.geometry('650x450+300+200')  # 定义窗口显示大小和显示位置
 
 frame1 = tk.Frame(root)
 console = LogWidget(frame1)
@@ -145,7 +143,7 @@ select_path = tk.StringVar()
 select_dir = tk.StringVar()
 
 # 布局空间
-csv_file_label = tk.Label(root, text='文件路径:', font='微软雅黑 12')
+csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12')
 csv_file_label.grid(column=0, row=0, sticky=tk.W, padx=20)
 
 csv_entry = tk.Entry(root, textvariable=select_path)
@@ -180,8 +178,9 @@ def start_cap():
     :return:
     """
     # 清空日志区
-    # log_data_text.delete(0.0, 'end')
-    console.scrolled_text.delete(0.0, 'end')
+    console.scrolled_text.configure(state='normal')
+    console.scrolled_text.delete("1.0", 'end')
+    console.scrolled_text.configure(state='disabled')
     # csv 文件的路径
     csv_file = csv_entry.get()
     # 摄像头类型
@@ -191,9 +190,11 @@ def start_cap():
     save_dir = dir_entry.get()
 
     if not os.path.isfile(csv_file):
-        logger.error(f'请重新选择包含ip,password的文件!')
+        logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
         raise ValueError('请重新选择包含ip,password的文件!')
-
+    if os.path.splitext(csv_file)[-1] != ".csv":
+        logger.error('必须是包含ip和password的csv文件！')
+        return -1
     logger.info(f'摄像头类型：{client_type}')
     logger.info(f'截图保存路径：{save_dir}')
 
