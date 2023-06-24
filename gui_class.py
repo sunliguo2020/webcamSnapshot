@@ -8,6 +8,7 @@
 """
 import logging
 import os
+import threading
 from tkinter import *
 from tkinter import ttk, filedialog, scrolledtext
 
@@ -87,7 +88,7 @@ class Application(Frame):
 
         # 采集按钮
         self.capture_button = Button(self, text='开始截图', font='宋体 12', bg='lightblue', width=20,
-                                     command=self.start_cap)
+                                     command=lambda:threading.Thread(target=self.start_cap).start())
         self.capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
         # 日志框
