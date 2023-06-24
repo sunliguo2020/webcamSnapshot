@@ -165,7 +165,7 @@ def cams_capture(csv_file, client=None, save_dir=None):
         return -1
     if not save_dir:
         save_dir = os.path.join(os.getcwd(), os.path.basename(csv_file).split('.')[0])
-        logger.debug(f"save_dir:{save_dir}")
+        logger.debug(f"保存截图的目录：{save_dir}")
 
     success_ip = []  # 采集成功的ip
     ip_passwd = []
