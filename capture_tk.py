@@ -17,6 +17,7 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk, N, S, E, W
 from tkinter.scrolledtext import ScrolledText
+from PIL import Image, ImageTk
 
 logger = logging.getLogger()
 logger.setLevel(level=logging.DEBUG)
@@ -209,6 +210,9 @@ capture_button = tk.Button(root, text='开始截图', font='宋体 12', bg='ligh
                            command=lambda: threading.Thread(target=start_cap).start())
 capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
-# clock = Clock()
-# clock.start()
+# 下载过程中循环显示已经保存成功的截图
+img = Image.open("a.jpg").resize((160,90))  # 打开图片
+photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
+# tk.Label(master=root,image=photo).grid(row=0, column=4)
+
 root.mainloop()
