@@ -21,16 +21,68 @@ except ImportError as e:
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
+handler_control = logging.StreamHandler()
+logger.addHandler(handler_control)
 
-def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
+
+def water_mark(frame, water_text):
     """
+    给图片添加水印
+    :param water_text: 水印信息
+    :param frame:
+    :return:
+    """
+    # 添加水印信息
+    text_watermark_x = 0
+    text_watermark_y = 200
+    water_text = water_text.replace('.jpg', '')
+    font_face = cv2.FONT_HERSHEY_SIMPLEX  # 字体
+    line_type = cv2.LINE_AA
+    '''
+    如果对大小约为1000 x 1000的图像使用fontScale = 1，则此代码应正确缩放字体
+    fontScale = (imageWidth * imageHeight) / (1000 * 1000) # Would work best for almost square images
+    '''
+    font_scale = 2  # 比例因子
+    thickness = 2  # 线的粗细
+
+    # 计算文本的宽高 baseline
+    # retval 返回值，元组，字体的宽高 (width, height)
+    retval, base_line = cv2.getTextSize(water_text, fontFace=font_face, fontScale=font_scale, thickness=thickness)
+
+    img_width = frame.shape[1]
+    img_hight = frame.shape[0]
+
+    logger.debug(f"截图的宽x高:{img_width}x{img_hight}")
+    text_width = retval[0]
+    # 如果文字的宽带大于图片的宽度，则缩小比例因子
+    if text_width > img_width:
+        font_scale = font_scale * (img_width / text_width) * 0.8
+        text_watermark_y = int(img_width * 0.1)  # 水印的新y坐标
+        logger.debug(f"水印Y坐标值为:{text_watermark_y}")
+
+    # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
+    # def putText(img, water_text, org, fontFace, fontScale, color, thickness=None, lineType=None, bottomLeftOrigin=None):
+    # real signature unknown; restored from __doc__
+    # 各参数依次是：图片，添加的文字，左上角坐标，字体，字体大小，颜色，字体粗细
+    # 字体大小，数值越大，字体越大
+    # 字体粗细，越大越粗，数值表示描绘的线条占有的直径像素个数
+    img2 = cv2.putText(frame, water_text, (text_watermark_x, text_watermark_y), font_face, font_scale,
+                       (100, 255, 0),
+                       thickness, line_type)
+    return img2
+
+
+def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir='.'):
+    """
+    根据提供的ip,password 采集摄像机某个通道的截图
+    :param channel_no: 通道号
     :param save_dir: 截图保存目录
     :param cam_ip:摄像头IP地址
     :param cam_pwd:摄像头密码
     :param cam_client: 摄像头类型，这里是hik和dahua
-    :return:
+    :return: < 0 : 报错退出
     """
-
+    # 判断截图根目录是否存在
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
 
@@ -46,29 +98,31 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
     pic_dir = os.path.join(save_dir, time.strftime('%Y-%m-%d', time.localtime()))
 
-    # 截图的文件名和路径
-    snapshot_file_name = cam_ip + '_' + cam_pwd + '_' + cam_client + "_rtsp_" + str_time + ".jpg"
-    snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
-
     if not os.path.isdir(pic_dir):
         os.makedirs(pic_dir)
     logger.debug(f"保存截图的目录:{pic_dir}")
+
+    # 截图的文件名和路径
+    snapshot_file_name = "_".join([cam_ip, cam_pwd, cam_client, "rtsp"]) + str_time + ".jpg"
+    snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
 
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
 
     # 判断是海康还是大华的摄像头
     if cam_client == 'dahua':
-        cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/cam/realmonitor?channel=1&subtype=0".format(cam_pwd, cam_ip),
+        cam = cv2.VideoCapture(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/cam/realmonitor?channel={channel_no}&subtype=0",
                                cv2.CAP_FFMPEG)
     elif cam_client == 'hik':
         try:
-            cam = cv2.VideoCapture("rtsp://admin:{}@{}:554/h264/ch34/main/av_stream".format(cam_pwd, cam_ip),
+            logger.debug(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/h264/ch{channel_no}/main/av_stream")
+            cam = cv2.VideoCapture(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/h264/ch{channel_no}/main/av_stream",
                                    cv2.CAP_FFMPEG)
         except Exception as e:
             logger.debug(f"cv2.VideoCapture failed{e}")
     else:
         logger.error("设备类型参数不正确")
-        return -1
+        return -2
+
     logger.debug(f'摄像头类型{cam_client}')
 
     # 判断视频对象是否成功读取成功
@@ -83,45 +137,10 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client=None, save_dir=None):
         return -3
     try:
         # 添加水印信息
-        text_watermark_x = 0
-        text_watermark_y = 200
-        water_text = snapshot_file_name.replace('.jpg', '')
-        font_face = cv2.FONT_HERSHEY_SIMPLEX  # 字体
-        line_type = cv2.LINE_AA
-        '''
-        如果对大小约为1000 x 1000的图像使用fontScale = 1，则此代码应正确缩放字体
-        fontScale = (imageWidth * imageHeight) / (1000 * 1000) # Would work best for almost square images
-        '''
-        font_scale = 2  # 比例因子
-        thickness = 2  # 线的粗细
-
-        # 计算文本的宽高 baseline
-        # retval 返回值，元组，字体的宽高 (width, height)
-        retval, base_line = cv2.getTextSize(water_text, fontFace=font_face, fontScale=font_scale, thickness=thickness)
-
-        img_width = frame.shape[1]
-        img_hight = frame.shape[0]
-        logger.debug(f"截图的宽x高:{img_width}x{img_hight}")
-        text_width = retval[0]
-        # 如果文字的宽带大于图片的宽度，则缩小比例因子
-        if text_width > img_width:
-            font_scale = font_scale * (img_width / text_width) * 0.8
-            text_watermark_y = int(img_width * 0.1)  # 水印的新y坐标
-            logger.debug(f"水印Y坐标值为:{text_watermark_y}")
-
-        # cv2.putText(图像,需要添加字符串,需要绘制的坐标,字体类型,字号,字体颜色,字体粗细)
-        # def putText(img, water_text, org, fontFace, fontScale, color, thickness=None, lineType=None, bottomLeftOrigin=None):
-        # real signature unknown; restored from __doc__
-        # 各参数依次是：图片，添加的文字，左上角坐标，字体，字体大小，颜色，字体粗细
-        # 字体大小，数值越大，字体越大
-        # 字体粗细，越大越粗，数值表示描绘的线条占有的直径像素个数
-        img2 = cv2.putText(frame, water_text, (text_watermark_x, text_watermark_y), font_face, font_scale,
-                           (100, 255, 0),
-                           thickness, line_type)
+        img2 = water_mark(frame, snapshot_file_name)
         # 保存路径中包含中文的问题
         # retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         retval = cv2.imencode(".jpg", img2)[1].tofile(snapshot_full_path)
-        logger.debug(f"ip：{cam_ip},file_name:{snapshot_file_name}下载完成")
 
     except Exception as e:
         logger.error(f"{cam_ip}下载过程中错误！")
@@ -153,8 +172,9 @@ def save_failed_ip(csv_file_name, failed_ip):
         csv_writer.writerows(failed_ip)
 
 
-def cams_capture(csv_file, client=None, save_dir=None):
+def cams_capture(csv_file, client='hik', save_dir='.'):
     """
+    根据csv文件中保存的ip，password来采集截图
     :param save_dir: 保存截图的目录
     :param csv_file: # 包含ip和密码的csv文件
     :param client: 摄像头类型 hik, dahua
@@ -184,7 +204,7 @@ def cams_capture(csv_file, client=None, save_dir=None):
             logger.debug(f"{count}:{ip}")
             try:
                 # 截图并保存
-                result = cv2_video_capture(ip, password, client, save_dir)
+                result = cv2_video_capture(cam_ip=ip, cam_pwd=password, cam_client=client, save_dir=save_dir)
             except Exception as e:
                 logger.error(f"截图过程中出错:{e}")
                 item[2] += 1
@@ -203,9 +223,32 @@ def cams_capture(csv_file, client=None, save_dir=None):
                 pass
 
     logger.debug(f'总共成功{len(success_ip)}个ip截图,{len(ip_passwd)}个ip截图失败')
-
+    # 保存截图失败的ip，password
     save_failed_ip(csv_file, ip_passwd)
 
 
+def cams_channel_capture(ip, password, type=None, start_channel_no=0, end_channel_no=64, save_dir=None):
+    """
+    按照录像机通道截图
+    :param type:
+    :param end_channel_no:
+    :param start_channel_no:
+    :param ip: 录像机ip地址
+    :param password: 录像机密码
+    :param channel_no: 录像机通道数
+    :return:
+    """
+
+    for channel in range(start_channel_no, end_channel_no + 1):
+        logger.debug(f'开始通道:{channel}')
+        try:
+            cv2_video_capture(cam_ip=ip, cam_pwd=password, cam_client='hik', channel_no=channel, save_dir=save_dir)
+        except Exception as e:
+            logger.debug(f'截图失败:{e}')
+
+
 if __name__ == '__main__':
-    cams_capture('./txt/ruizhi.csv', 'hik')
+    # cams_capture('./txt/ruizhi.csv', 'hik')
+    # cams_channel_capture('192.168.1.200', 'admin123', start_channel_no=1, end_channel_no=10, save_dir='./')
+    res = cv2_video_capture('192.168.1.1', 'admin')
+    print(res)
