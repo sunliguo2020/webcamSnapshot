@@ -15,6 +15,12 @@ logger.setLevel(logging.DEBUG)
 
 
 def portisopen(ip, port):
+    """
+    检测某个ip地址的端口是否开启
+    :param ip:
+    :param port:
+    :return:
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(1)
     state = sock.connect_ex((ip, port))
