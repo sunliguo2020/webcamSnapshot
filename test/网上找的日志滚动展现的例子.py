@@ -14,7 +14,6 @@ import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 from tkinter import ttk, VERTICAL, HORIZONTAL, N, S, E, W
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -51,6 +50,7 @@ class QueueHandler(logging.Handler):
     It can be used from different threads
     The ConsoleUi class polls this queue to display records in a ScrolledText widget
     """
+
     # Example from Moshe Kaplan: https://gist.github.com/moshekaplan/c425f861de7bbf28ef06
     # (https://stackoverflow.com/questions/13318742/python-logging-to-tkinter-text-widget) is not thread safe!
     # See https://stackoverflow.com/questions/43909849/tkinter-python-crashes-on-new-thread-trying-to-log-on-main-thread
@@ -69,7 +69,7 @@ class ConsoleUi:
     def __init__(self, frame):
         self.frame = frame
         # Create a ScrolledText wdiget
-        self.scrolled_text = ScrolledText(frame,  state='disabled', height=12)
+        self.scrolled_text = ScrolledText(frame, state='disabled', height=12)
         self.scrolled_text.grid(row=0, column=0, sticky=(N, S, W, E))
         self.scrolled_text.configure(font='TkFixedFont')
         self.scrolled_text.tag_config('INFO', foreground='black')
