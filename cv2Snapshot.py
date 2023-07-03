@@ -82,6 +82,10 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     :param cam_client: 摄像头类型，这里是hik和dahua
     :return: < 0 : 报错退出
     """
+    logger.debug(f"savedir:{save_dir}")
+    # 如果save_dir 为空的情况
+    if save_dir == '':
+        save_dir = '.'
     # 判断截图根目录是否存在
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
@@ -101,10 +105,10 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     if not os.path.isdir(pic_dir):
         os.makedirs(pic_dir)
     logger.debug(f"保存截图的目录:{pic_dir}")
-
+    print(f"保存截图的目录:{pic_dir}")
     # 截图的文件名和路径
     # TODO: 测试
-    snapshot_file_name = "_".join([cam_ip, cam_pwd, cam_client, "rtsp", "channel"+str(channel_no), str_time]) + ".jpg"
+    snapshot_file_name = "_".join([cam_ip, cam_pwd, cam_client, "rtsp", "channel" + str(channel_no), str_time]) + ".jpg"
     snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
 
     logger.debug(snapshot_full_path)
@@ -177,7 +181,7 @@ def save_failed_ip(csv_file_name, failed_ip):
         csv_writer.writerows(failed_ip)
 
 
-def cams_capture(csv_file, client='hik', save_dir='.'):
+def cams_capture(csv_file, *args, **kwargs):
     """
     根据csv文件中保存的ip，password来采集截图
     :param save_dir: 保存截图的目录
@@ -185,12 +189,10 @@ def cams_capture(csv_file, client='hik', save_dir='.'):
     :param client: 摄像头类型 hik, dahua
     :return:
     """
+    logger.debug(f"args:{args},kwargs:{kwargs}")
     if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[1] != '.csv':
         logger.error('必须是csv格式的文件！')
         return -1
-    if not save_dir:
-        save_dir = os.path.join(os.getcwd(), os.path.basename(csv_file).split('.')[0])
-        logger.debug(f"保存截图的目录：{save_dir}")
 
     success_ip = []  # 采集成功的ip
     ip_passwd = []
@@ -209,7 +211,7 @@ def cams_capture(csv_file, client='hik', save_dir='.'):
             logger.debug(f"{count}:{ip}")
             try:
                 # 截图并保存
-                result = cv2_video_capture(cam_ip=ip, cam_pwd=password, cam_client=client, save_dir=save_dir)
+                result = cv2_video_capture(cam_ip=ip, cam_pwd=password, *args, **kwargs)
             except Exception as e:
                 logger.error(f"截图过程中出错:{e}")
                 item[2] += 1
@@ -232,7 +234,7 @@ def cams_capture(csv_file, client='hik', save_dir='.'):
     save_failed_ip(csv_file, ip_passwd)
 
 
-def cams_channel_capture(ip, password, type=None, start_channel_no=0, end_channel_no=64, save_dir=None):
+def cams_channel_capture(ip, password,cam_client, start_channel_no=0, end_channel_no=64, save_dir=None):
     """
     按照录像机通道截图
     :param save_dir:
@@ -248,7 +250,7 @@ def cams_channel_capture(ip, password, type=None, start_channel_no=0, end_channe
     for channel in range(start_channel_no, end_channel_no + 1):
         logger.debug(f'开始通道:{channel}')
         try:
-            cv2_video_capture(cam_ip=ip, cam_pwd=password, cam_client='hik', channel_no=channel, save_dir=save_dir)
+            cv2_video_capture(cam_ip=ip, cam_pwd=password, channel_no=channel)
         except Exception as e:
             logger.debug(f'截图失败:{e}')
 
@@ -256,5 +258,4 @@ def cams_channel_capture(ip, password, type=None, start_channel_no=0, end_channe
 if __name__ == '__main__':
     # cams_capture('./txt/ruizhi.csv', 'hik')
     cams_channel_capture('192.168.1.200', 'admin123', start_channel_no=1, end_channel_no=10, save_dir='./')
-    # res = cv2_video_capture('192.168.1.1', 'admin')
-    # print(res)
+
