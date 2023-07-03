@@ -103,8 +103,11 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     logger.debug(f"保存截图的目录:{pic_dir}")
 
     # 截图的文件名和路径
-    snapshot_file_name = "_".join([cam_ip, cam_pwd, cam_client, "rtsp"]) + str_time + ".jpg"
+    # TODO: 测试
+    snapshot_file_name = "_".join([cam_ip, cam_pwd, cam_client, "rtsp", "channel"+str(channel_no), str_time]) + ".jpg"
     snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
+
+    logger.debug(snapshot_full_path)
 
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
 
@@ -114,8 +117,10 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
                                cv2.CAP_FFMPEG)
     elif cam_client == 'hik':
         try:
-            logger.debug(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/h264/ch{channel_no}/main/av_stream")
-            cam = cv2.VideoCapture(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/h264/ch{channel_no}/main/av_stream",
+            # logger.debug(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/h264/ch{channel_no}/main/av_stream")
+            logger.debug(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/Streaming/Channels/{channel_no}01")
+            # cam = cv2.VideoCapture(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/h264/ch{channel_no}/main/av_stream",
+            cam = cv2.VideoCapture(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/Streaming/Channels/{channel_no}01",
                                    cv2.CAP_FFMPEG)
         except Exception as e:
             logger.debug(f"cv2.VideoCapture failed{e}")
@@ -230,6 +235,7 @@ def cams_capture(csv_file, client='hik', save_dir='.'):
 def cams_channel_capture(ip, password, type=None, start_channel_no=0, end_channel_no=64, save_dir=None):
     """
     按照录像机通道截图
+    :param save_dir:
     :param type:
     :param end_channel_no:
     :param start_channel_no:
@@ -249,6 +255,6 @@ def cams_channel_capture(ip, password, type=None, start_channel_no=0, end_channe
 
 if __name__ == '__main__':
     # cams_capture('./txt/ruizhi.csv', 'hik')
-    # cams_channel_capture('192.168.1.200', 'admin123', start_channel_no=1, end_channel_no=10, save_dir='./')
-    res = cv2_video_capture('192.168.1.1', 'admin')
-    print(res)
+    cams_channel_capture('192.168.1.200', 'admin123', start_channel_no=1, end_channel_no=10, save_dir='./')
+    # res = cv2_video_capture('192.168.1.1', 'admin')
+    # print(res)
