@@ -13,7 +13,7 @@ from cv2Snapshot import cams_capture
 from cv2Snapshot import cams_channel_capture
 
 
-class widgetLogger(logging.Handler):
+class WidgetLogger(logging.Handler):
     # The init function needs the widget which will hold the log messages passed to it as
     # well as other basic information (log level, format, etc.)
 
@@ -56,10 +56,10 @@ class Application(Frame):
         self.password = StringVar()
         self.number = StringVar()
         self.select_dir = StringVar()
-        self.endchannel = IntVar()
-        self.createWidget()
+        self.endChannel = IntVar()
+        self.create_widget()
 
-    def createWidget(self):
+    def create_widget(self):
 
         self.ip_label = Label(self, text='录像机IP地址:', font='微软雅黑 12')
         self.ip_label.grid(column=0, row=0, sticky=W, padx=20)
@@ -77,7 +77,7 @@ class Application(Frame):
         # 创建一个下拉列表
         Label(self, text='截至通道号:', font='微软雅黑 12').grid(column=0, row=2, sticky=W, padx=20)
 
-        self.endchanelChosen = ttk.Combobox(self, state='readonly', width=12, height=12, textvariable=self.endchannel)
+        self.endchanelChosen = ttk.Combobox(self, state='readonly', width=12, height=12, textvariable=self.endChannel)
         self.endchanelChosen['values'] = [i for i in range(1, 65)]  # 设置下拉列表的值
         self.endchanelChosen.grid(column=1, row=2, sticky=W)  # 设置其在界面中出现的位置  column代表列   row 代表行
         self.endchanelChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
@@ -97,7 +97,7 @@ class Application(Frame):
         self.dir_entry = Entry(self, textvariable=self.select_dir)
         self.dir_entry.grid(column=1, row=4, sticky=W)
         # 截图保存路径浏览按钮
-        Button(self, text="浏览", command=self.select_folder).grid(row=3, column=3, sticky=W)
+        Button(self, text="浏览", command=self.select_folder).grid(row=4, column=3, sticky=W)
 
         # 采集按钮
         self.capture_button = Button(self, text='开始截图', font='宋体 12', bg='lightblue', width=20,
@@ -109,7 +109,7 @@ class Application(Frame):
         self.logWidget.grid(row=10, column=0, columnspan=10, rowspan=4, padx=(10, 10), pady=(10, 10))
 
         logFormatStr = '%(asctime)s - %(threadName)s - %(funcName)s  - %(levelname)-8s %(message)s'
-        guiLogger = widgetLogger(self.logWidget, logging.DEBUG, format=logFormatStr)
+        guiLogger = WidgetLogger(self.logWidget, logging.DEBUG, format=logFormatStr)
         logging.getLogger().addHandler(guiLogger)
 
     def select_folder(self):
@@ -140,7 +140,7 @@ class Application(Frame):
         # TODO(sunliguo) :检查ip password 的合法性
 
         if client_type == '海康':
-            cams_channel_capture(ip, password, end_channel_no=self.endchannel.get(), cam_client='hik',
+            cams_channel_capture(ip, password, end_channel_no=self.endChannel.get(), cam_client='hik',
                                  save_dir=save_dir)
         elif client_type == '大华':
             cams_capture(ip, password, client='dahua', save_dir=save_dir)
