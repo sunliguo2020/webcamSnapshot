@@ -108,7 +108,6 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
         os.makedirs(pic_dir)
     logger.debug(f"保存截图的目录:{pic_dir}")
     # 截图的文件名和路径
-    # TODO: 测试
     snapshot_file_name = "_".join([cam_ip, cam_pwd, cam_client, "rtsp", "channel" + str(channel_no), str_time]) + ".jpg"
     snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
 
@@ -245,10 +244,13 @@ def cams_channel_capture(ip, password, start_channel_no=1, end_channel_no=64, **
     # 分析参数
     logger.debug(f"ip:{ip}, password:{password}, start_channel_no:{start_channel_no},"
                  f" end_channel_no:{end_channel_no}, kwargs：{kwargs}")
-    # TODO 如果没有save_dir参数，则设置为当前录像机的ip地址
-    if "save_dir" not in kwargs:
+
+    # 如果没有save_dir参数，则设置为当前录像机的ip地址
+    if "save_dir" not in kwargs or kwargs.get('save_dir') == '':
         logger.debug(f"没有传递save_dir参数,我要自己加把当前录像机的ip作为这个参数的值")
         kwargs.update({'save_dir': str(ip)})
+        logger.debug(f"修改后的kwarg：{kwargs}")
+
     for channel in range(start_channel_no, end_channel_no + 1):
         logger.debug(f'开始通道:{channel}')
         try:
