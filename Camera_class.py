@@ -6,7 +6,6 @@
 """
 import os
 import time
-
 import cv2
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;50"
