@@ -5,12 +5,14 @@
 @Created on: 2023-07-03 20:34
 """
 import logging
+import os.path
 import threading
 from tkinter import *
 from tkinter import ttk, filedialog, scrolledtext
 
 from cv2Snapshot import cams_capture
 from cv2Snapshot import cams_channel_capture
+from tool import is_ipv4
 
 
 class WidgetLogger(logging.Handler):
@@ -61,7 +63,7 @@ class Application(Frame):
 
     def create_widget(self):
 
-        self.ip_label = Label(self, text='录像机IP地址:', font='微软雅黑 12')
+        self.ip_label = Label(self, text='IP地址:', font='微软雅黑 12')
         self.ip_label.grid(column=0, row=0, sticky=W, padx=20)
 
         self.ip_entry = Entry(self, textvariable=self.ip)
@@ -77,7 +79,7 @@ class Application(Frame):
         # 创建一个下拉列表
         Label(self, text='截至通道号:', font='微软雅黑 12').grid(column=0, row=2, sticky=W, padx=20)
 
-        self.endchanelChosen = ttk.Combobox(self, state='readonly', width=12, height=12, textvariable=self.endChannel)
+        self.endchanelChosen = ttk.Combobox(self, state='readonly', width=3, height=12, textvariable=self.endChannel)
         self.endchanelChosen['values'] = [i for i in range(1, 65)]  # 设置下拉列表的值
         self.endchanelChosen.grid(column=1, row=2, sticky=W)  # 设置其在界面中出现的位置  column代表列   row 代表行
         self.endchanelChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
@@ -126,6 +128,11 @@ class Application(Frame):
         # log_data_text.delete(0.0, 'end')
         # 录像机IP地址
         ip = self.ip.get()
+        # 检查ip password 的合法性
+        if not is_ipv4(ip) or ip == '':
+            logging.critical(f"ip:{ip}的格式不正确，请重新输入！")
+            return -1
+
         # 录像机密码
         password = self.password.get()
         # 摄像头类型
@@ -134,10 +141,13 @@ class Application(Frame):
         # 截图保存路径
         save_dir = self.dir_entry.get()
 
+        # 截图路径为空，则直接保存到程序运行的目录,以当前ip为目录
+        if save_dir == "":
+            save_dir = os.path.split(os.path.realpath(__file__))[0]
+            save_dir = os.path.join(save_dir, ip)
+
         logging.info(f'摄像头类型：{client_type}')
         logging.info(f'截图保存路径：{save_dir}')
-
-        # TODO(sunliguo) :检查ip password 的合法性
 
         if client_type == '海康':
             cams_channel_capture(ip, password, end_channel_no=self.endChannel.get(), cam_client='hik',
@@ -148,7 +158,7 @@ class Application(Frame):
 
 if __name__ == '__main__':
     root = Tk()
-    root.geometry('500x400+300+200')
+    root.geometry('500x600+300+200')
     root.title('录像机截图采集小工具')
 
     app = Application(master=root)
