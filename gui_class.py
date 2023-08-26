@@ -3,14 +3,14 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2023-06-05 21:40
-
-测试一个经典的GUI程序的写法，使用面向对象的方式
+网络摄像头采集程序
+使用面向对象的方式 图形界面
 """
 import logging
 import os
 import threading
-from tkinter import *
-from tkinter import ttk, filedialog, scrolledtext
+import tkinter as tk
+from tkinter import ttk, filedialog, scrolledtext, Frame, StringVar, Label, Entry, Button
 
 from cv2Snapshot import cams_capture
 
@@ -52,43 +52,53 @@ class widgetLogger(logging.Handler):
 class Application(Frame):
     def __init__(self, master=None):
         super().__init__()
+        self.csv_file_label = None
         self.master = master
+        # 组件布局管理方式
         self.pack()
+        # 保存ip和密码 的csv文件路径
         self.select_path = StringVar()
+        # 保存截图的文件夹路径
         self.select_dir = StringVar()
+        # 摄像头类型
         self.number = StringVar()
+        # 图形 组件的布局
         self.createWidget()
 
     def createWidget(self):
+        """
+        创建图形界面的组件
+        :return:
+        """
 
         self.csv_file_label = Label(self, text='文件路径:', font='微软雅黑 12')
-        self.csv_file_label.grid(column=0, row=0, sticky=W, padx=20)
+        self.csv_file_label.grid(column=0, row=0, sticky=tk.W, padx=20)
 
         self.csv_entry = Entry(self, textvariable=self.select_path)
-        self.csv_entry.grid(column=1, row=0, sticky=W)
+        self.csv_entry.grid(column=1, row=0, sticky=tk.W)
 
         Button(self, text="浏览", command=self.select_file).grid(row=0, column=3)
 
         # 创建一个下拉列表
-        Label(self, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=1, sticky=W, padx=20)
+        Label(self, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=1, sticky=tk.W, padx=20)
 
         self.numberChosen = ttk.Combobox(self, state='readonly', width=12, height=12, textvariable=self.number)
         self.numberChosen['values'] = ('海康', '大华')  # 设置下拉列表的值
-        self.numberChosen.grid(column=1, row=1, sticky=W)  # 设置其在界面中出现的位置  column代表列   row 代表行
+        self.numberChosen.grid(column=1, row=1, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
         self.numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
 
         # 截图保存目录
         self.cap_dir_label = Label(self, text='截图保存位置\n(留空为当前目录):', font='微软雅黑 10')
-        self.cap_dir_label.grid(row=2, column=0, sticky=W, padx=20)
+        self.cap_dir_label.grid(row=2, column=0, sticky=tk.W, padx=20)
 
         self.dir_entry = Entry(self, textvariable=self.select_dir)
-        self.dir_entry.grid(column=1, row=2, sticky=W)
+        self.dir_entry.grid(column=1, row=2, sticky=tk.W)
         # 截图保存路径浏览按钮
-        Button(self, text="浏览", command=self.select_folder).grid(row=2, column=3, sticky=W)
+        Button(self, text="浏览", command=self.select_folder).grid(row=2, column=3, sticky=tk.W)
 
         # 采集按钮
         self.capture_button = Button(self, text='开始截图', font='宋体 12', bg='lightblue', width=20,
-                                     command=lambda:threading.Thread(target=self.start_cap).start())
+                                     command=lambda: threading.Thread(target=self.start_cap).start())
         self.capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
         # 日志框
@@ -138,7 +148,7 @@ class Application(Frame):
 
 
 if __name__ == '__main__':
-    root = Tk()
+    root = tk.Tk()
     root.geometry('500x400+300+200')
     root.title('摄像头截图采集小工具')
 
