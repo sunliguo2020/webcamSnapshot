@@ -56,7 +56,7 @@ def hik_cv2(cam_ip="192.168.1.200", cam_pwd='admin', dir_pre=''):
     pic_dir = dir_pre + "_" + time.strftime('%Y-%m-%d', time.localtime())
 
     if not os.path.isdir(pic_dir):
-        os.makedirs(os.path.join('./', pic_dir))
+        os.makedirs(os.path.join('/', pic_dir))
 
     pic_file_name = f"{cam_ip}_{cam_pwd}_hik_{str_time}.jpg"
     # 保存文件的路径名

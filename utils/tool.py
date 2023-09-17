@@ -51,19 +51,22 @@ def is_ipv4(ip: str) -> bool:
     return True if [1] * 4 == [x.isdigit() and 0 <= int(x) <= 255 for x in ip.split(".")] else False
 
 
-def gen_ip_password_from_csv(file_path, line_count=0):
+def gen_ip_password_from_csv(file_path, start_line=0):
     """
     读取csv文件，返回ip，password
     :param file_path: 要读取的csv文件
-    :param line_count: 跳过前几行
+    :param start_line: 跳过前几行
     :return: ip,password
     """
+    # 判断文件是否存在
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError
     # 判断是否是csv文件
+    # 读取文件
     with open(file_path, encoding='utf-8') as f:
         # 跳过前几行
-        for i in range(line_count):
+        for i in range(start_line):
             next(f)  # 跳过一行
-
         try:
             csv_read = csv.reader(f)
             for row in csv_read:
