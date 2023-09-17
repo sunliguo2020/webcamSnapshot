@@ -12,7 +12,7 @@ from tkinter import ttk, filedialog, scrolledtext
 
 from cv2Snapshot import cams_capture
 from cv2Snapshot import cams_channel_capture
-from tool import is_ipv4
+from utils.tool import is_ipv4
 
 
 class WidgetLogger(logging.Handler):

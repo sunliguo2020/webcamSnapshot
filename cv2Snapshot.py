@@ -10,7 +10,7 @@ import logging
 import os
 import time
 
-from tool import portisopen, gen_ip_password_from_csv
+from utils.tool import portisopen, gen_ip_password_from_csv
 
 try:
     import cv2
@@ -111,7 +111,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     snapshot_file_name = "_".join([cam_ip, cam_pwd, cam_client, "rtsp", "channel" + str(channel_no), str_time]) + ".jpg"
     snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
 
-    logger.debug(snapshot_full_path)
+    # logger.debug(snapshot_full_path)
 
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
 
@@ -132,7 +132,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
         logger.error("设备类型参数不正确")
         return -2
 
-    logger.debug(f'摄像头类型{cam_client}')
+    # logger.debug(f'摄像头类型{cam_client}')
 
     # 判断视频对象是否成功读取成功
     if not cam.isOpened():
@@ -148,7 +148,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
         # 添加水印信息
         img2 = water_mark(frame, snapshot_file_name)
         # 保存路径中包含中文的问题
-        # retval = cv2.imwrite(snapshot_full_path, img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        # retval = cv2.imwrite(snapshot_full_path+'.jpg', img2, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         retval = cv2.imencode(".jpg", img2)[1].tofile(snapshot_full_path)
 
     except Exception as e:

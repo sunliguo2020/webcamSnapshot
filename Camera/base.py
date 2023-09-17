@@ -23,18 +23,21 @@ class Camera:
 
     def __init__(self, ip=None, password='admin', camera_type='hik', file_name=None,
                  folder_path=None, is_water_mark=True):
-        self.ip = ip
+        if ip:
+            self.ip = ip
+        else:
+            self.ip = ''
         self.password = password
         self.camera_type = camera_type
         self.frame = None
         self.is_water_mark = is_water_mark
 
-        if self.camera_type == 'dahua':
+        if self.camera_type == 'dahua' and self.ip:
             self.path = f"rtsp://admin:{self.password}@{self.ip}:554/cam/realmonitor?channel=1&subtype=0"
-        elif self.camera_type == 'hik':
-            self.path = f"rtsp://admin:{self.password}@{self.ip}:554/h264/ch34/main/av_stream"
-        elif self.camera_type == 'computer':
+        elif self.camera_type == 'computer' or not self.ip:
             self.path = 0
+        elif self.camera_type == 'hik' and self.ip:
+            self.path = f"rtsp://admin:{self.password}@{self.ip}:554/h264/ch34/main/av_stream"
         else:
             raise ValueError("camera type error!")
 
@@ -60,6 +63,7 @@ class Camera:
         截图
         :return:
         """
+        logging.debug(f"self.path:{self.path}")
         # opencv自带的VideoCapture()函数定义摄像头对象，其参数0表示第一个摄像头
         cam = cv2.VideoCapture(self.path)
         if not cam.isOpened():
