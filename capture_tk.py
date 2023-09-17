@@ -7,16 +7,16 @@
 pyinstaller -F -w -i cam_capture.ico capture_tk.py -n 摄像头批量截图
 
 """
-import datetime
 import logging
 import os.path
 import queue
 import threading
-import time
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk, N, S, E, W
 from tkinter.scrolledtext import ScrolledText
+
+import cv2Snapshot
 from PIL import Image, ImageTk
 
 logger = logging.getLogger()
@@ -138,9 +138,6 @@ dir_entry.grid(column=1, row=2, sticky=tk.W)
 # 截图保存路径浏览按钮
 tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
 
-# from cv2Snapshot import cams_capture
-import cv2Snapshot
-
 
 def start_cap():
     """
@@ -158,6 +155,8 @@ def start_cap():
 
     # 截图保存路径
     save_dir = dir_entry.get()
+    if save_dir == '':
+        save_dir = os.path.splitext(os.path.basename(csv_file))[0]
 
     if not os.path.isfile(csv_file):
         logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
@@ -169,9 +168,9 @@ def start_cap():
     logger.info(f'截图保存路径：{save_dir}')
 
     if client_type == '海康':
-        cv2Snapshot.cams_capture(csv_file, client='hik', save_dir=save_dir)
+        cv2Snapshot.cams_capture(csv_file, cam_client='hik', save_dir=save_dir)
     elif client_type == '大华':
-        cv2Snapshot.cams_capture(csv_file, client='dahua', save_dir=save_dir)
+        cv2Snapshot.cams_capture(csv_file, cam_client='dahua', save_dir=save_dir)
 
 
 # 采集按钮
@@ -180,7 +179,7 @@ capture_button = tk.Button(root, text='开始截图', font='宋体 12', bg='ligh
 capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
 # 下载过程中循环显示已经保存成功的截图
-img = Image.open("a.jpg").resize((160,90))  # 打开图片
+img = Image.open("a.jpg").resize((160, 90))  # 打开图片
 photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
 # tk.Label(master=root,image=photo).grid(row=0, column=4)
 

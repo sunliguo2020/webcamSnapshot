@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/dahua.iml" filepath="$PROJECT_DIR$/.idea/dahua.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/webcamSnapshot.iml" filepath="$PROJECT_DIR$/.idea/webcamSnapshot.iml" />
     </modules>
   </component>
 </project>
