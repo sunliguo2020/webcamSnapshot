@@ -6,8 +6,9 @@
 """
 
 import csv
-from hik_cv2 import hik_cv2
 from concurrent.futures import ThreadPoolExecutor
+
+from hik_cv2 import hik_cv2
 
 
 def csv2jpg(file_path, password='admin', count=0):

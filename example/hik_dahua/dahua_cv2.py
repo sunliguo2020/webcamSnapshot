@@ -39,7 +39,7 @@ rtsp://admin:admin@10.12.4.84:554/cam/realmonitor?channel=2&subtype=1
 import logging
 
 logging.basicConfig(filename='dahua_cv2.log',
-                    level=logging.debug,
+                    level=logging.DEBUG,
                     filemode='a',
                     format='%(asctime)s-%(filename)s[line:%(lineno)d]-%(message)s')
 import os
@@ -67,7 +67,7 @@ def dahua_cv2(ip, password, dir_pre=''):
     pic_dir = dir_pre + "_" + time.strftime('%Y-%m-%d', time.localtime())
 
     if not os.path.isdir(pic_dir):
-        os.makedirs(os.path.join('./', pic_dir))
+        os.makedirs(os.path.join('/', pic_dir))
 
     pic_file_name = f"{ip}_{password}_dahua_{str_time}.jpg"
     # 保存文件的路径名
