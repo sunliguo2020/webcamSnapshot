@@ -45,8 +45,6 @@ class Camera:
         self.frame = None
         self.is_water_mark = is_water_mark
 
-        
-
         # 截图的保存文件名是ip_password_camear_type_strftime.jpg
         if file_name:
             self._file_name = file_name
@@ -129,7 +127,7 @@ class Camera:
             line_type,
         )
         # return water_mark_img
-    
+
     @property
     def camera_path(self):
         # camera_type 类型 dahua hik computer
@@ -137,15 +135,14 @@ class Camera:
             return f"rtsp://admin:{self.password}@{self.ip}:554/cam/realmonitor?channel=1&subtype=0"
         # 电脑摄像头
         elif self.camera_type == "computer" or not self.ip:
-            return  0
+            return 0
         # 海康威视
         elif self.camera_type == "hik" and self.ip:
-            return  (
+            return (
                 f"rtsp://admin:{self.password}@{self.ip}:554/h264/ch34/main/av_stream"
             )
         else:
             raise ValueError("camera type error!only dahua hik computer")
-        
 
     # @property装饰器的作用：1、让函数可以向普通遍历一样使用2、对要读取的数据进行预处理
     @property
@@ -156,7 +153,7 @@ class Camera:
         """
         if self._file_name:
             return self._file_name
-        elif self.camera_type == 'computer':
+        elif self.camera_type == "computer":
             return f"{self.camera_type}_{time.strftime('%Y%m%d%H%M%S', time.localtime())}.jpg"
         else:
             return (
@@ -175,10 +172,12 @@ if __name__ == "__main__":
     # print(dir(cam1))
     # print(id(cam1.ip))
     # print(id('192.168.1.111'))
-    cam1 = Camera( camera_type="computer")
+    cam1 = Camera(camera_type="computer")
 
     print(cam1.camera_path)
     # print(dir(cam1))
+    # 取消水印
+    cam1.is_water_mark = False
     cam1.capture()
     # print(type(cam1.frame))  # <class 'numpy.ndarray'>
     # 保存numpy.ndarray 保存为图片
