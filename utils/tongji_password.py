@@ -9,12 +9,11 @@
 先统计出文件名，用"_"分割后，得到ip地址，密码，时间等信息,保存为csv文件。
 
 """
+import csv
 import os
 
-import csv
-
 # 要统计的目录
-dir_name = r'd:\监控截图\现代中学'
+dir_name = r'D:\睿智\监控截图\现代中学\2023-05-30'
 
 with open("ip_pass.csv", 'w', newline='') as fp:
     csv_write = csv.writer(fp)
