@@ -3,11 +3,83 @@
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2023-05-19 18:13
-"""
-import tkinter as tk
-from tkinter import filedialog, ttk
+摄像头批量截图的图形界面
+pyinstaller -F -w -i cam_capture.ico capture_tk.py -n 摄像头批量截图
 
-from cv2Snapshot import cams_capture
+"""
+import logging
+import os.path
+import queue
+import threading
+import tkinter as tk
+from tkinter import filedialog
+from tkinter import ttk, N, S, E, W
+from tkinter.scrolledtext import ScrolledText
+
+import cv2Snapshot
+from PIL import Image, ImageTk
+
+logger = logging.getLogger()
+logger.setLevel(level=logging.DEBUG)
+
+
+class QueueHandler(logging.Handler):
+    """
+    Class to send logging records to a queue
+    It can be used from different threads
+    The ConsoleUi class polls this queue to display records in a ScrolledText widget
+    """
+
+    def __init__(self, log_queue):
+        super().__init__()
+        self.log_queue = log_queue
+
+    def emit(self, record):
+        self.log_queue.put(record)
+
+
+class LogWidget:
+    """Poll messages from a logging queue and display them in a scrolled text widget"""
+
+    def __init__(self, frame):
+        self.frame = frame
+        # Create a ScrolledText wdiget
+        self.scrolled_text = ScrolledText(frame, state='disabled', height=20)
+        self.scrolled_text.grid(row=10, column=0, sticky=(N, S, W, E))
+        self.scrolled_text.configure(font=('宋体', '10'))
+        self.scrolled_text.tag_config('INFO', foreground='black')
+        self.scrolled_text.tag_config('DEBUG', foreground='gray')
+        self.scrolled_text.tag_config('WARNING', foreground='orange')
+        self.scrolled_text.tag_config('ERROR', foreground='red')
+        self.scrolled_text.tag_config('CRITICAL', foreground='red', underline=1)
+        # Create a logging handler using a queue
+        self.log_queue = queue.Queue()
+        self.queue_handler = QueueHandler(self.log_queue)
+        formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
+        self.queue_handler.setFormatter(formatter)
+        logger.addHandler(self.queue_handler)
+
+        # Start polling messages from the queue
+        self.frame.after(100, self.poll_log_queue)
+
+    def display(self, record):
+        msg = self.queue_handler.format(record)
+        self.scrolled_text.configure(state='normal')
+        self.scrolled_text.insert(tk.END, msg + '\n', record.levelname)
+        self.scrolled_text.configure(state='disabled')
+        # Autoscroll to the bottom
+        self.scrolled_text.yview(tk.END)
+
+    def poll_log_queue(self):
+        # Check every 100ms if there is a new message in the queue to display
+        while True:
+            try:
+                record = self.log_queue.get(block=False)
+            except queue.Empty:
+                break
+            else:
+                self.display(record)
+        self.frame.after(100, self.poll_log_queue)
 
 
 def select_file():
@@ -28,59 +100,87 @@ def select_folder():
     select_dir.set(selected_folder)
 
 
-def start_cap():
-    # print(type(csv_entry.get()))
-    csv_file = csv_entry.get()
-    client_type = numberChosen.get()
-    print(client_type)
-    if client_type == '海康':
-        cams_capture(csv_file, client='hik', save_dir=dir_entry.get())
-    elif client_type == '大华':
-        cams_capture(csv_file,client='dahua',save_dir=dir_entry.get())
-
-
 root = tk.Tk()
-root.title('摄像头截图采集小工具')
+root.title('网络摄像头截图采集小工具')
+root.geometry('650x450+300+200')  # 定义窗口显示大小和显示位置
 
-root.geometry('800x700+300+200')  # 定义窗口显示大小和显示位置
+frame1 = tk.Frame(root)
+console = LogWidget(frame1)
+frame1.grid(row=10, column=0, columnspan=5, padx=20)
 
 # 初始化Entry控件的text variable属性值
 select_path = tk.StringVar()
 select_dir = tk.StringVar()
 
 # 布局空间
-csv_file_label = tk.Label(root, text='文件路径:')
-csv_file_label.grid(column=0, row=0, rowspan=3)
+csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12')
+csv_file_label.grid(column=0, row=0, sticky=tk.W, padx=20)
 
 csv_entry = tk.Entry(root, textvariable=select_path)
-csv_entry.grid(column=1, row=0, rowspan=3)
+csv_entry.grid(column=1, row=0, )
 
-tk.Button(root, text="选择csv文件", command=select_file).grid(row=0, column=2)
-# tk.Button(root, text="选择多个文件", command=select_files).grid(row=1, column=2)
-# tk.Button(root, text="选择文件夹", command=select_folder).grid(row=2, column=2)
+tk.Button(root, text="浏览", command=select_file).grid(row=0, column=3)
 
 # 创建一个下拉列表
-tk.Label(root, text='摄像头类型:').grid(column=0, row=5, rowspan=3)
+tk.Label(root, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=1, sticky=tk.W, padx=20)
 number = tk.StringVar()
-numberChosen = ttk.Combobox(root,state='readonly', width=12, textvariable=number)
+numberChosen = ttk.Combobox(root, state='readonly', width=12, height=12, textvariable=number)
 numberChosen['values'] = ('海康', '大华')  # 设置下拉列表的值
-numberChosen.grid(column=1, row=5)  # 设置其在界面中出现的位置  column代表列   row 代表行
+numberChosen.grid(column=1, row=1, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
 
 # 截图保存目录
-cap_dir_label = tk.Label(root,text='截图保存位置:')
-cap_dir_label.grid(row=6,column=0,rowspan=3)
+cap_dir_label = tk.Label(root, text='截图保存位置\n(留空为当前目录):', font='微软雅黑 10')
+cap_dir_label.grid(row=2, column=0, sticky=tk.W, padx=20)
 
 dir_entry = tk.Entry(root, textvariable=select_dir)
-dir_entry.grid(column=1, row=7, rowspan=3)
-tk.Button(root, text="浏览", command=select_folder).grid(row=7, column=2)
+dir_entry.grid(column=1, row=2, sticky=tk.W)
+# 截图保存路径浏览按钮
+tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
+
+
+def start_cap():
+    """
+    开始采集的按钮绑定的程序
+    :return:
+    """
+    # 清空日志区
+    console.scrolled_text.configure(state='normal')
+    console.scrolled_text.delete("1.0", 'end')
+    console.scrolled_text.configure(state='disabled')
+    # csv 文件的路径
+    csv_file = csv_entry.get()
+    # 摄像头类型
+    client_type = numberChosen.get()
+
+    # 截图保存路径
+    save_dir = dir_entry.get()
+    if save_dir == '':
+        save_dir = os.path.splitext(os.path.basename(csv_file))[0]
+
+    if not os.path.isfile(csv_file):
+        logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
+        raise ValueError('请重新选择包含ip,password的文件!')
+    if os.path.splitext(csv_file)[-1] != ".csv":
+        logger.error('必须是包含ip和password的csv文件！')
+        return -1
+    logger.info(f'摄像头类型：{client_type}')
+    logger.info(f'截图保存路径：{save_dir}')
+
+    if client_type == '海康':
+        cv2Snapshot.cams_capture(csv_file, cam_client='hik', save_dir=save_dir)
+    elif client_type == '大华':
+        cv2Snapshot.cams_capture(csv_file, cam_client='dahua', save_dir=save_dir)
+
 
 # 采集按钮
-capture_button = tk.Button(root, text='开始采集', bg='lightblue', width=10, command=start_cap)
-capture_button.grid(row=8, column=4)
+capture_button = tk.Button(root, text='开始截图', font='宋体 12', bg='lightblue', width=20,
+                           command=lambda: threading.Thread(target=start_cap).start())
+capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
-# 日志框
-log_data_text = tk.Text(root)
-log_data_text.grid(row=10, column=0, columnspan=10)
+# 下载过程中循环显示已经保存成功的截图
+img = Image.open("a.jpg").resize((160, 90))  # 打开图片
+photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
+# tk.Label(master=root,image=photo).grid(row=0, column=4)
 
 root.mainloop()
