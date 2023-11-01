@@ -4,6 +4,7 @@
 @contact: QQ376440229
 @Created on: 2023-05-19 18:13
 摄像头批量截图的图形界面
+
 pyinstaller -F -w -i cam_capture.ico capture_tk.py -n 摄像头批量截图
 
 """
@@ -125,7 +126,7 @@ tk.Button(root, text="浏览", command=select_file).grid(row=0, column=3)
 tk.Label(root, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=1, sticky=tk.W, padx=20)
 number = tk.StringVar()
 numberChosen = ttk.Combobox(root, state='readonly', width=12, height=12, textvariable=number)
-numberChosen['values'] = ('海康', '大华')  # 设置下拉列表的值
+numberChosen['values'] = ('海康', '大华','电脑')  # 设置下拉列表的值
 numberChosen.grid(column=1, row=1, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
 
@@ -155,15 +156,15 @@ def start_cap():
 
     # 截图保存路径
     save_dir = dir_entry.get()
+
+    # 保存截图的文件夹默认是 csv文件名
     if save_dir == '':
         save_dir = os.path.splitext(os.path.basename(csv_file))[0]
 
-    if not os.path.isfile(csv_file):
+    if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv":
         logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
         raise ValueError('请重新选择包含ip,password的文件!')
-    if os.path.splitext(csv_file)[-1] != ".csv":
-        logger.error('必须是包含ip和password的csv文件！')
-        return -1
+  
     logger.info(f'摄像头类型：{client_type}')
     logger.info(f'截图保存路径：{save_dir}')
 
