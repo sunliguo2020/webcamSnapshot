@@ -18,7 +18,8 @@ from tkinter import ttk, N, S, E, W
 from tkinter.scrolledtext import ScrolledText
 
 import cv2Snapshot
-from PIL import Image, ImageTk
+from Camera import Camera
+from utils.tool import convert_ip_list
 
 logger = logging.getLogger()
 logger.setLevel(level=logging.DEBUG)
@@ -126,7 +127,7 @@ tk.Button(root, text="浏览", command=select_file).grid(row=0, column=3)
 tk.Label(root, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=1, sticky=tk.W, padx=20)
 number = tk.StringVar()
 numberChosen = ttk.Combobox(root, state='readonly', width=12, height=12, textvariable=number)
-numberChosen['values'] = ('海康', '大华','电脑')  # 设置下拉列表的值
+numberChosen['values'] = ('海康', '大华', '电脑')  # 设置下拉列表的值
 numberChosen.grid(column=1, row=1, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
 
@@ -149,27 +150,44 @@ def start_cap():
     console.scrolled_text.configure(state='normal')
     console.scrolled_text.delete("1.0", 'end')
     console.scrolled_text.configure(state='disabled')
-    # csv 文件的路径
-    csv_file = csv_entry.get()
+
     # 摄像头类型
     client_type = numberChosen.get()
+    logging.debug(client_type)
 
-    # 截图保存路径
-    save_dir = dir_entry.get()
+    # 如果是电脑摄像头，直接截图
+    if client_type == '电脑':
+        Camera(camera_type='computer').capture()
+        return
 
-    # 保存截图的文件夹默认是 csv文件名
-    if save_dir == '':
-        save_dir = os.path.splitext(os.path.basename(csv_file))[0]
+    # csv 文件的路径
+    csv_file = csv_entry.get()
 
+    # 判断csv_file的合法性
     if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv":
         logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
         raise ValueError('请重新选择包含ip,password的文件!')
-  
+
+    # 截图保存路径 或 保存截图的文件夹默认是 csv文件名
+    save_dir = dir_entry.get() or os.path.splitext(os.path.basename(csv_file))[0]
+
     logger.info(f'摄像头类型：{client_type}')
     logger.info(f'截图保存路径：{save_dir}')
 
     if client_type == '海康':
-        cv2Snapshot.cams_capture(csv_file, cam_client='hik', save_dir=save_dir)
+        cam_list = convert_ip_list(csv_file)
+        count = 0
+        while cam_list and count < 5:
+            count += 1
+            logging.debug(count)
+            for index, item in enumerate(cam_list[:]):
+
+                logging.debug(f'开始截图{item}')
+                result = Camera(ip=item.get("ip"), password=item.get('password'), folder_path=save_dir).capture()
+                if result == 1:
+                    # del cam_list[index]
+                    cam_list.remove(item)
+
     elif client_type == '大华':
         cv2Snapshot.cams_capture(csv_file, cam_client='dahua', save_dir=save_dir)
 
@@ -179,7 +197,7 @@ capture_button = tk.Button(root, text='开始截图', font='宋体 12', bg='ligh
                            command=lambda: threading.Thread(target=start_cap).start())
 capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
-#TODO 下载过程中循环显示已经保存成功的截图
+# TODO 下载过程中循环显示已经保存成功的截图
 # img = Image.open("a.jpg").resize((160, 90))  # 打开图片
 # photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
 # # tk.Label(master=root,image=photo).grid(row=0, column=4)
