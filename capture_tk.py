@@ -125,6 +125,24 @@ numberChosen['values'] = ('海康', '大华', '电脑')  # 设置下拉列表的
 numberChosen.grid(column=1, row=0, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
 
+
+def callbackFunc(event):
+    """
+    设备类型选择后的回调函数
+    @param event:
+    @return:
+    """
+    print(f"New Element Selected{event}")
+    print(numberChosen.current(), numberChosen.get())
+
+    # 如果用户选择电脑，则下面的csv为不可选择状态
+    if numberChosen.get() == '电脑':
+        csv_entry['state'] = 'disable'
+        csv_button['state'] = tk.DISABLED
+
+
+numberChosen.bind("<<ComboboxSelected>>", callbackFunc)
+
 # 保存 ip地址和密码的csv文件
 csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12')
 csv_file_label.grid(column=0, row=1, sticky=tk.W, padx=20)
@@ -132,9 +150,8 @@ csv_file_label.grid(column=0, row=1, sticky=tk.W, padx=20)
 csv_entry = tk.Entry(root, textvariable=select_path)
 csv_entry.grid(column=1, row=1, )
 
-tk.Button(root, text="浏览", command=select_file).grid(row=0, column=3)
-
-
+csv_button = tk.Button(root, text="浏览", command=select_file)
+csv_button.grid(row=1, column=3)
 
 # 截图保存目录
 cap_dir_label = tk.Label(root, text='截图保存位置\n(留空为当前目录):', font='微软雅黑 10')
@@ -142,6 +159,7 @@ cap_dir_label.grid(row=2, column=0, sticky=tk.W, padx=20)
 
 dir_entry = tk.Entry(root, textvariable=select_dir)
 dir_entry.grid(column=1, row=2, sticky=tk.W)
+
 # 截图保存路径浏览按钮
 tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
 
@@ -206,5 +224,9 @@ capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 # img = Image.open("a.jpg").resize((160, 90))  # 打开图片
 # photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
 # # tk.Label(master=root,image=photo).grid(row=0, column=4)
+
+
+if numberChosen.get() == '电脑':
+    csv_button['state'] = tk.DISABLED
 
 root.mainloop()
