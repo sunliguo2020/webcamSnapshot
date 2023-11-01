@@ -115,21 +115,26 @@ select_path = tk.StringVar()
 select_dir = tk.StringVar()
 
 # 布局空间
-csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12')
-csv_file_label.grid(column=0, row=0, sticky=tk.W, padx=20)
 
-csv_entry = tk.Entry(root, textvariable=select_path)
-csv_entry.grid(column=1, row=0, )
-
-tk.Button(root, text="浏览", command=select_file).grid(row=0, column=3)
-
+# 截图的类型 电脑摄像头  海康  大华
 # 创建一个下拉列表
-tk.Label(root, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=1, sticky=tk.W, padx=20)
+tk.Label(root, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=0, sticky=tk.W, padx=20)
 number = tk.StringVar()
 numberChosen = ttk.Combobox(root, state='readonly', width=12, height=12, textvariable=number)
 numberChosen['values'] = ('海康', '大华', '电脑')  # 设置下拉列表的值
-numberChosen.grid(column=1, row=1, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
+numberChosen.grid(column=1, row=0, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
+
+# 保存 ip地址和密码的csv文件
+csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12')
+csv_file_label.grid(column=0, row=1, sticky=tk.W, padx=20)
+
+csv_entry = tk.Entry(root, textvariable=select_path)
+csv_entry.grid(column=1, row=1, )
+
+tk.Button(root, text="浏览", command=select_file).grid(row=0, column=3)
+
+
 
 # 截图保存目录
 cap_dir_label = tk.Label(root, text='截图保存位置\n(留空为当前目录):', font='微软雅黑 10')
