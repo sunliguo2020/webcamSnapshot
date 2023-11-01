@@ -5,8 +5,7 @@
 *.txt
 *.log
 *.exe
-.idea
-.vscode
+.idea/
+.vscode/
 __pycache__
 *.exe
-
