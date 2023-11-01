@@ -8,8 +8,10 @@ import logging
 import os
 import time
 
-logging.basicConfig(filename="Camera.log", level=logging.DEBUG)
+from utils.tool import portisopen
 import cv2
+
+logging.basicConfig(filename="Camera.log", level=logging.DEBUG)
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;50"
 
@@ -21,19 +23,19 @@ class Camera:
     """
 
     def __init__(
-        self,
-        # ip地址
-        ip=None,
-        # 默认密码
-        password="admin",
-        # 摄像头类型
-        camera_type="hik",
-        # 保存截图的文件名
-        file_name=None,
-        # 截图保存路径
-        folder_path=None,
-        # 是否添加水印
-        is_water_mark=True,
+            self,
+            # ip地址
+            ip=None,
+            # 默认密码
+            password="admin",
+            # 摄像头类型
+            camera_type="hik",
+            # 保存截图的文件名
+            file_name=None,
+            # 截图保存路径
+            folder_path=None,
+            # 是否添加水印
+            is_water_mark=True,
     ):
         if ip:
             self.ip = ip
@@ -68,8 +70,26 @@ class Camera:
         :return:
         """
         logging.debug(f"self.camera_path:{self.camera_path}")
+
+        # 不是电脑截图的时候判断
+        # 判断rtsp协议的554端口有没有打开。
+        if self.camera_path != 0 and not portisopen(self.ip, 554):
+            logging.debug(f"{self.ip} 554 端口没有打开或者网络不通")
+            return -1
+
+        # cv2.VideoCapture 拉取rtsp流超时问题
+        # os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
+        # cap=cv2.VideoCapture(self.__rtsp_url,cv2.CAP_FFMPEG)
+
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;500"
+
         # opencv自带的VideoCapture()函数定义摄像头对象，其参数0表示第一个摄像头
-        cam = cv2.VideoCapture(self.camera_path)
+        try:
+            cam = cv2.VideoCapture(self.camera_path)
+            logging.debug(cam)
+        except Exception as e:
+            print(e)
+
         if not cam.isOpened():
             raise RuntimeError("视频对象读取失败!~")
         ret, self.frame = cam.read()
@@ -80,12 +100,23 @@ class Camera:
 
         # 文件路径中不包含中文 保存截图到文件
         # cv2.imwrite(self.file_name, frame)  # 存储为图像
+
         img_write = cv2.imencode(".jpg", self.frame)[1].tofile(self.file_full_path)
 
         logging.debug(f"img_write 类型：{img_write}")
+
+        if os.path.isfile(self.file_full_path):
+            logging.debug(f'截图成功{self.file_full_path}')
+            return 1
+        else:
+            logging.debug('截图保存失败！')
+            return -2
+
         # 清理资源
         cam.release()
         cv2.destroyAllWindows()
+
+
 
     def watermark(self):
         """
