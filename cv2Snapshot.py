@@ -79,7 +79,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     :param save_dir: 截图保存目录
     :param cam_ip:摄像头IP地址
     :param cam_pwd:摄像头密码
-    :param cam_client: 摄像头类型，这里是hik和dahua
+    :param cam_client: 摄像头类型，这里是hik和dahua,computer
     :return: < 0 : 报错退出
     """
 
@@ -209,7 +209,7 @@ def cams_capture(csv_file, *args, **kwargs):
             logger.debug(f"{count}:{ip}")
             try:
                 # 截图并保存
-                result = cv2_video_capture(cam_ip=ip, cam_pwd=password, *args, **kwargs)
+                result = cv2_video_capture(cam_ip=ip, cam_pwd=password)
             except Exception as e:
                 logger.error(f"截图过程中出错:{e}")
                 item[2] += 1
@@ -260,5 +260,5 @@ def cams_channel_capture(ip, password, start_channel_no=1, end_channel_no=64, **
 
 
 if __name__ == '__main__':
-    # cams_capture('./txt/ruizhi.csv', 'hik')
-    cams_channel_capture('192.168.1.200', 'admin123', end_channel_no=10)
+    cams_capture('./txt/ruizhi.csv', 'hik')
+    # cams_channel_capture('192.168.1.200', 'admin123', end_channel_no=10)
