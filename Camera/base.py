@@ -4,14 +4,17 @@
 @contact: QQ376440229
 @Created on: 2023-05-25 7:48
 """
-import logging
 import os
 import time
-
 from utils.tool import portisopen
-import cv2
 
-logging.basicConfig(filename="Camera.log", level=logging.DEBUG)
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+print(f'id(logger):{id(logger)}')
+# logging.basicConfig(filename="Camera.log", level=logging.DEBUG)
+
+import cv2
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;50"
 
@@ -37,6 +40,15 @@ class Camera:
             # 是否添加水印
             is_water_mark=True,
     ):
+        """
+
+        @param ip:
+        @param password:
+        @param camera_type:
+        @param file_name:
+        @param folder_path:
+        @param is_water_mark:
+        """
         if ip:
             self.ip = ip
         else:
@@ -54,27 +66,29 @@ class Camera:
             self._file_name = None
 
         if folder_path:
+
             self.folder_path = folder_path
         else:
             self.folder_path = time.strftime("%Y-%m-%d", time.localtime())
 
         # 默认保存的目录是 年份-月份-日期
         if not os.path.isdir(self.folder_path):
-            os.mkdir(self.folder_path)
+            os.makedirs(self.folder_path)
 
         self.file_full_path = os.path.join(self.folder_path, self.file_name)
 
     def capture(self):
         """
         截图
-        :return:
+        :return: 返回1 截图成功
         """
-        logging.debug(f"self.camera_path:{self.camera_path}")
+        # print(f'id(logger):{id(logger)}')
+        logger.debug(f"self.camera_path:{self.camera_path}")
 
         # 不是电脑截图的时候判断
         # 判断rtsp协议的554端口有没有打开。
         if self.camera_path != 0 and not portisopen(self.ip, 554):
-            logging.debug(f"{self.ip} 554 端口没有打开或者网络不通")
+            logger.debug(f"{self.ip} 554 端口没有打开或者网络不通")
             return -1
 
         # cv2.VideoCapture 拉取rtsp流超时问题
@@ -86,7 +100,7 @@ class Camera:
         # opencv自带的VideoCapture()函数定义摄像头对象，其参数0表示第一个摄像头
         try:
             cam = cv2.VideoCapture(self.camera_path)
-            logging.debug(cam)
+            logger.debug(cam)
         except Exception as e:
             print(e)
 
@@ -103,20 +117,18 @@ class Camera:
 
         img_write = cv2.imencode(".jpg", self.frame)[1].tofile(self.file_full_path)
 
-        logging.debug(f"img_write 类型：{img_write}")
+        logger.debug(f"img_write 类型：{img_write}")
 
         if os.path.isfile(self.file_full_path):
-            logging.debug(f'截图成功{self.file_full_path}')
+            logger.debug(f'截图成功{self.file_full_path}')
             return 1
         else:
-            logging.debug('截图保存失败！')
+            logger.debug('截图保存失败！')
             return -2
 
         # 清理资源
         cam.release()
         cv2.destroyAllWindows()
-
-
 
     def watermark(self):
         """
@@ -198,16 +210,17 @@ class Camera:
 
 
 if __name__ == "__main__":
-    # cam1 = Camera('192.168.1.111', password='FYKWXY', camera_type='hik')
-    # cam1.capture()
+    # 测试海康摄像头
+    cam1 = Camera('192.168.1.111', password='FYKWXY', camera_type='hik')
+    # print(cam1)
+    result = cam1.capture()
+    print(result)
     # print(dir(cam1))
     # print(id(cam1.ip))
     # print(id('192.168.1.111'))
-    cam1 = Camera(camera_type="computer")
 
-    print(cam1.camera_path)
-    # print(dir(cam1))
-    # 取消水印
+
+    cam1 = Camera(camera_type="computer")
     cam1.is_water_mark = False
     cam1.capture()
     # print(type(cam1.frame))  # <class 'numpy.ndarray'>
