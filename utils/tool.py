@@ -33,6 +33,14 @@ def portisopen(ip, port):
 
 
 def is_reachable(ip):
+    """检测某个ip是否通
+
+    Args:
+        ip (_type_): IP地址
+
+    Returns:
+        _type_: 0 或 1
+    """
     response = os.system('ping -c 1' + ip)
     if response == 0:
         print(ip + 'is reachable')
@@ -80,3 +88,20 @@ def gen_ip_password_from_csv(file_path, start_line=0):
         except Exception as e:
             logger.debug(e)
             return -1
+
+
+def convert_ip_list(csv_file):
+    """
+    读取csv文件的前2字段，转换为 ip和密码的字典
+    @param csv_file:
+    @return: 包含ip，password，状态等字典的列表
+    """
+    cam_list = []
+    # 将csv文件转为 摄像头对象的列表
+    with open(csv_file) as fp:
+        for item in csv.reader(fp):
+            cam_list.append({'ip': item[0],
+                             'password': item[1],
+                             'time': 0,
+                             'status': False})
+    return cam_list
