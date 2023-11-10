@@ -9,3 +9,5 @@
 .vscode/
 __pycache__
 *.exe
+/build/*
+*.spec
