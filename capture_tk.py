@@ -14,12 +14,10 @@ import queue
 import threading
 import time
 import tkinter as tk
-from datetime import datetime
 from tkinter import filedialog
 from tkinter import ttk, N, S, E, W
 from tkinter.scrolledtext import ScrolledText
 
-import cv2Snapshot
 from Camera import Camera
 from utils.capture_from_csv import capture_from_csv
 
@@ -174,8 +172,8 @@ def start_cap():
 
 
 root = tk.Tk()
-version = str(datetime.now())
-root.title('网络摄像头截图采集小工具' + version)
+# version = str(datetime.now())
+root.title('网络摄像头截图采集小工具')
 root.geometry('650x450+300+200')  # 定义窗口显示大小和显示位置
 
 frame1 = tk.Frame(root)
