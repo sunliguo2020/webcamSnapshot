@@ -9,9 +9,8 @@ import time
 from utils.tool import portisopen
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('CameraLog')
 logger.setLevel(logging.DEBUG)
-print(f'id(logger):{id(logger)}')
 # logging.basicConfig(filename="Camera.log", level=logging.DEBUG)
 
 import cv2
@@ -72,7 +71,7 @@ class Camera:
             self.folder_path = time.strftime("%Y-%m-%d", time.localtime())
 
         # 默认保存的目录是 年份-月份-日期
-        if not os.path.isdir(self.folder_path):
+        if not os.path.exists(self.folder_path):
             os.makedirs(self.folder_path)
 
         self.file_full_path = os.path.join(self.folder_path, self.file_name)
@@ -82,7 +81,6 @@ class Camera:
         截图
         :return: 返回1 截图成功
         """
-        # print(f'id(logger):{id(logger)}')
         logger.debug(f"self.camera_path:{self.camera_path}")
 
         # 不是电脑截图的时候判断

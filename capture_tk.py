@@ -20,10 +20,10 @@ from tkinter.scrolledtext import ScrolledText
 
 from Camera import Camera
 from utils.capture_from_csv import capture_from_csv
+from utils.capture_pool import capture_pool
 
-logger = logging.getLogger('Camera')
+logger = logging.getLogger('CameraLog')
 formatter = logging.Formatter('%(asctime)s- %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
-
 logger.setLevel(level=logging.DEBUG)
 
 
@@ -61,7 +61,7 @@ class LogWidget:
         self.scrolled_text.tag_config('DEBUG', foreground='gray')
         self.scrolled_text.tag_config('WARNING', foreground='orange')
         self.scrolled_text.tag_config('ERROR', foreground='red')
-        self.scrolled_text.tag_config('CRITICAL', foreground='red', underline=1)
+        self.scrolled_text.tag_config('CRITICAL', foreground='red', underline=True)
 
         # Create a logging handler using a queue
         self.log_queue = queue.Queue()
@@ -141,7 +141,7 @@ def start_cap():
 
     # 摄像头类型
     client_type = numberChosen.get()
-    logging.debug(client_type)
+    logger.debug(client_type)
 
     # 如果是电脑摄像头，直接截图
     if client_type == '电脑':
@@ -165,15 +165,17 @@ def start_cap():
     logger.info(f'截图保存路径：{save_dir}')
 
     if client_type == '海康':
-        capture_from_csv(csv_file, folder_path=save_dir)
+        # capture_from_csv(csv_file, folder_path=save_dir)
+        capture_pool(csv_file, folder_path=save_dir)
 
     elif client_type == '大华':
-        capture_from_csv(csv_file, camera_type='dahua', folder_path=save_dir)
+        # capture_from_csv(csv_file, camera_type='dahua', folder_path=save_dir)
+        capture_pool(csv_file, camera_type='dahua', folder_path=save_dir)
 
 
 root = tk.Tk()
-# version = str(datetime.now())
-root.title('网络摄像头截图采集小工具')
+# 标题
+root.title('网络摄像头截图采集小工具(多线程版本)')
 root.geometry('650x450+300+200')  # 定义窗口显示大小和显示位置
 
 frame1 = tk.Frame(root)
@@ -199,17 +201,18 @@ numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberCho
 numberChosen.bind("<<ComboboxSelected>>", callbackFunc)
 
 # 保存 ip地址和密码的csv文件
-csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12')
+# 标签组件
+csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12', fg='green')
 csv_file_label.grid(column=0, row=1, sticky=tk.W, padx=20)
-
+# 输入框
 csv_entry = tk.Entry(root, textvariable=select_path)
-csv_entry.grid(column=1, row=1, )
+csv_entry.grid(column=1, row=1, sticky=tk.W)
 
 csv_button = tk.Button(root, text="浏览", command=select_file)
 csv_button.grid(row=1, column=3)
 
 # 截图保存目录
-cap_dir_label = tk.Label(root, text='截图保存位置\n(留空为当前目录):', font='微软雅黑 10')
+cap_dir_label = tk.Label(root, text='截图保存位置\n(留空为当前目录):', font='微软雅黑 12')
 cap_dir_label.grid(row=2, column=0, sticky=tk.W, padx=20)
 
 dir_entry = tk.Entry(root, textvariable=select_dir)
@@ -219,7 +222,11 @@ dir_entry.grid(column=1, row=2, sticky=tk.W)
 tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
 
 # 采集按钮
-capture_button = tk.Button(root, text='开始截图', font='宋体 12', bg='lightblue', width=20,
+capture_button = tk.Button(root,
+                           text='开始截图',
+                           font='宋体 12',
+                           bg='lightblue',
+                           width=20,
                            command=lambda: threading.Thread(target=start_cap).start())
 capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
