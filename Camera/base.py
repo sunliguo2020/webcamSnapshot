@@ -4,19 +4,57 @@
 @contact: QQ376440229
 @Created on: 2023-05-25 7:48
 """
+import errno
+import logging
 import os
 import time
+
 from utils.tool import portisopen
 
-import logging
-logger = logging.getLogger('CameraLog')
-logger.setLevel(logging.DEBUG)
-# logging.basicConfig(filename="Camera.log", level=logging.DEBUG)
+# 创建一个文件处理程序并设置编码为UTF-8
+file_handler = logging.FileHandler(filename='Camera.log', encoding='utf-8')
 
+# 配置日志格式和级别
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+file_handler.setLevel(logging.DEBUG)
+
+# 创建一个 logger 实例
+logger = logging.getLogger('CameraLog')
+logger.addHandler(file_handler)
+logger.setLevel(logging.DEBUG)
+
+import tkinter as tk
+from PIL import ImageTk, Image
 import cv2
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;50"
 
+
+def display_image(image_path):
+    root = tk.Tk()
+    root.title("显示截图")
+
+    # 打开图像文件
+    img = Image.open(image_path)
+
+    # 将图像调整为合适的大小
+    # img.thumbnail((500, 600), Image.ANTIALIAS)
+    img.thumbnail((700, 600))
+
+    # 将 PIL 图像转换为 PhotoImage
+    photo = ImageTk.PhotoImage(img)
+
+    # 创建 Label 组件以显示图像
+    label = tk.Label(root, image=photo)
+    label.image = photo  # 保持对图片的引用，避免被垃圾回收
+
+    # 将 Label 放置到窗口中
+    label.pack()
+    root.mainloop()
+
+
+# 调用函数显示图片
+# display_image("path/to/your/saved/screenshot.png")  # 替换为实际的截图路径
 
 class Camera:
     """
@@ -48,85 +86,83 @@ class Camera:
         @param folder_path:
         @param is_water_mark:
         """
-        if ip:
-            self.ip = ip
-        else:
-            self.ip = ""
-
+        self.ip = ip or ""
         self.password = password
         self.camera_type = camera_type
         self.frame = None
         self.is_water_mark = is_water_mark
 
         # 截图的保存文件名是ip_password_camear_type_strftime.jpg
-        if file_name:
-            self._file_name = file_name
-        else:
-            self._file_name = None
+        self._file_name = file_name or None
 
-        if folder_path:
-
-            self.folder_path = folder_path
-        else:
-            self.folder_path = time.strftime("%Y-%m-%d", time.localtime())
+        self.folder_path = folder_path or time.strftime("%Y-%m-%d", time.localtime())
 
         # 默认保存的目录是 年份-月份-日期
         if not os.path.exists(self.folder_path):
-            os.makedirs(self.folder_path)
+            try:
+                os.makedirs(self.folder_path)
+            except OSError as e:
+                if e.errno != errno.EEXIST:  # 如果不是 "文件已存在" 错误
+                    raise  # 如果不是文件已存在的错误，则抛出异常
+        else:
+            logger.debug(f"目录 {self.folder_path} 已经存在")
 
         self.file_full_path = os.path.join(self.folder_path, self.file_name)
 
     def capture(self):
         """
         截图
+        返回 1 表示截图成功。
+        返回 0 表示未进行截图操作。
+        返回 -1、-2 或其他负数表示截图失败或出现错误。
         :return: 返回1 截图成功
+        假设这个函数返回了一个元组（status, file_path）
         """
-        logger.debug(f"self.camera_path:{self.camera_path}")
-
-        # 不是电脑截图的时候判断
-        # 判断rtsp协议的554端口有没有打开。
-        if self.camera_path != 0 and not portisopen(self.ip, 554):
+        # 检查摄像头是否可用
+        if not self.check_camera():
             logger.debug(f"{self.ip} 554 端口没有打开或者网络不通")
-            return -1
-
-        # cv2.VideoCapture 拉取rtsp流超时问题
-        # os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
-        # cap=cv2.VideoCapture(self.__rtsp_url,cv2.CAP_FFMPEG)
-
-        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;500"
-
-        # opencv自带的VideoCapture()函数定义摄像头对象，其参数0表示第一个摄像头
+            return -1, None
         try:
+            # 获取摄像头视频帧
             cam = cv2.VideoCapture(self.camera_path)
-            logger.debug(cam)
+            if not cam.isOpened():
+                raise RuntimeError("视频对象读取失败")
+
+            ret, self.frame = cam.read()
+
+            # 添加水印
+            if self.is_water_mark:
+                self.watermark()
+
+            # 保存截图
+
+            # cv2.imencode(保存格式,保存图片)[1].tofile('保存路径')
+            # cv2.imwrite(self.file_full_path, self.frame)
+            if cv2.imencode('.jpg', self.frame)[1].tofile(self.file_full_path):
+                logger.debug(f'截图成功,文件路径：{self.file_full_path}')
+                # display_image(self.file_full_path)
+                return 1, self.file_full_path
+            else:
+                logger.debug('截图保存失败！')
+                return -2, None
+
         except Exception as e:
-            print(e)
+            logger.error(f"捕获图像时发生错误：{e}")
+            return -3, None
 
-        if not cam.isOpened():
-            raise RuntimeError("视频对象读取失败!~")
-        ret, self.frame = cam.read()
+        finally:
+            # 释放资源
+            if 'cam' in locals() and cam and cam.isOpened():
+                cam.release()
+            cv2.destroyAllWindows()
 
-        # 是否添加水印信息
-        if self.is_water_mark:
-            self.watermark()
-
-        # 文件路径中不包含中文 保存截图到文件
-        # cv2.imwrite(self.file_name, frame)  # 存储为图像
-
-        img_write = cv2.imencode(".jpg", self.frame)[1].tofile(self.file_full_path)
-
-        logger.debug(f"img_write 类型：{img_write}")
-
-        if os.path.isfile(self.file_full_path):
-            logger.debug(f'截图成功{self.file_full_path}')
-            return 1
-        else:
-            logger.debug('截图保存失败！')
-            return -2
-
-        # 清理资源
-        cam.release()
-        cv2.destroyAllWindows()
+    def check_camera(self):
+        """
+        检查摄像头是否可用
+        """
+        if self.camera_path != 0 and not portisopen(self.ip, 554):
+            return False
+        return True
 
     def watermark(self):
         """
@@ -157,17 +193,21 @@ class Camera:
             font_scale = font_scale * (img_width / text_width) * 0.8
             text_watermark_y = int(img_width * 0.1)  # 水印的新y坐标
 
+            # 声明文字的坐标位置和参数
+        text_position = (text_watermark_x, text_watermark_y)
+        font_color = (100, 255, 0)
+
+        # 在图像上绘制文字水印
         self.frame = cv2.putText(
             self.frame,
             text,
-            (text_watermark_x, text_watermark_y),
+            text_position,
             font_face,
             font_scale,
-            (100, 255, 0),
+            font_color,
             thickness,
             line_type,
         )
-        # return water_mark_img
 
     @property
     def camera_path(self):
@@ -208,22 +248,12 @@ class Camera:
 
 
 if __name__ == "__main__":
-    # 测试海康摄像头
-    cam1 = Camera('192.168.1.111', password='FYKWXY', camera_type='hik')
-    # print(cam1)
-    result = cam1.capture()
-    print(result)
-    # print(dir(cam1))
-    # print(id(cam1.ip))
-    # print(id('192.168.1.111'))
-
+    # # 测试海康摄像头
+    # cam1 = Camera('192.168.1.111', password='FYKWXY', camera_type='hik')
+    # # print(cam1)
+    # result = cam1.capture()
+    # print(result)
 
     cam1 = Camera(camera_type="computer")
-    cam1.is_water_mark = False
-    cam1.capture()
-    # print(type(cam1.frame))  # <class 'numpy.ndarray'>
-    # 保存numpy.ndarray 保存为图片
-
-    # from PIL import Image
-    # im = Image.fromarray(cam1.frame)
-    # im.save("your_file.jpg")
+    cam1.is_water_mark = True
+    print(cam1.capture())

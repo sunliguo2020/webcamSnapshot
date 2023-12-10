@@ -18,13 +18,14 @@ from tkinter import filedialog
 from tkinter import ttk, N, S, E, W
 from tkinter.scrolledtext import ScrolledText
 
+from PIL import ImageTk, Image
+
 from Camera import Camera
-from utils.capture_from_csv import capture_from_csv
 from utils.capture_pool import capture_pool
 
 logger = logging.getLogger('CameraLog')
-formatter = logging.Formatter('%(asctime)s- %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
 logger.setLevel(level=logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s- %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
 
 
 class QueueHandler(logging.Handler):
@@ -145,7 +146,11 @@ def start_cap():
 
     # 如果是电脑摄像头，直接截图
     if client_type == '电脑':
-        Camera(camera_type='computer').capture()
+        result = Camera(camera_type='computer').capture()
+        if result[0] == 1:
+            logger.debug("截图成功！")
+            image_path = result[1]  # 获取截图文件的路径
+            display_image(image_path)  # 显示捕获的图像
         return
 
     # csv 文件的路径
@@ -165,12 +170,33 @@ def start_cap():
     logger.info(f'截图保存路径：{save_dir}')
 
     if client_type == '海康':
-        # capture_from_csv(csv_file, folder_path=save_dir)
         capture_pool(csv_file, folder_path=save_dir)
 
     elif client_type == '大华':
-        # capture_from_csv(csv_file, camera_type='dahua', folder_path=save_dir)
         capture_pool(csv_file, camera_type='dahua', folder_path=save_dir)
+
+
+def display_image(image_path):
+    """
+    # img = Image.open("a.jpg").resize((160, 90))  # 打开图片
+    # photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
+    # # tk.Label(master=root,image=photo).grid(row=0, column=4)
+    @param image_path:
+    @return:
+    """
+    # 打开图像文件
+    img = Image.open(image_path)
+
+    # 将图像调整为合适的大小
+    img = img.resize((100, 50))
+
+    # 将 PIL 图像转换为 PhotoImage
+    photo = ImageTk.PhotoImage(img)
+    # global image_label, root
+    # 创建 Label 组件以显示图像
+    image_label = tk.Label(root, image=photo)
+    image_label.image = photo  # 保持对图片的引用，避免被垃圾回收
+    image_label.grid(row=10, column=1, sticky=tk.W, padx=20)
 
 
 root = tk.Tk()
@@ -229,10 +255,5 @@ capture_button = tk.Button(root,
                            width=20,
                            command=lambda: threading.Thread(target=start_cap).start())
 capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
-
-# TODO 下载过程中循环显示已经保存成功的截图
-# img = Image.open("a.jpg").resize((160, 90))  # 打开图片
-# photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
-# # tk.Label(master=root,image=photo).grid(row=0, column=4)
 
 root.mainloop()
