@@ -10,8 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from Camera import Camera
 from utils.tool import convert_ip_list
 
-logger = logging.getLogger('CameraLog')
-
+logger = logging.getLogger('camera_log')
 
 
 def capture_pool(csv_file, *args, **kwargs):
@@ -26,19 +25,23 @@ def capture_pool(csv_file, *args, **kwargs):
     cam_list = convert_ip_list(csv_file)
     cam_args = [(item['ip'], item['password']) for item in cam_list]
     # 2、 创建线程池
-    with ThreadPoolExecutor(max_workers=10) as pool:
+    with ThreadPoolExecutor() as pool:
         results = pool.map(lambda arg: Camera(*arg, *args, **kwargs).capture(),
                            cam_args)
-        # 每个ip和结果对应
-        results = list(zip(cam_args, results))
+    # 每个ip和结果对应
+    # (('172.24.99.101', 'admin'), (-1, None))
+    last_results = list(zip(cam_args, results))
+    # [(('192.168.1.101', 'admi12345'), (-1, None)), (('192.168.1.103', 'admi12345'), (-1, None)), (('192.168.1.105', 'OIBLDQ'), (-1, None)), (('192.168.1.107', 'admi12345'), (-1, None)), (('192.168.1.109', 'admin123'), (-1, None)), (('192.168.1.111', 'FYKWXY'), (-1, None)), (('192.168.1.113', 'admi12345'), (-1, None))]
+    # logger.debug(last_results)
 
-        for result in results:
-            logger.debug(result)
+    for result in last_results:
+        logger.debug(f"截图结果:{result}")
     # 3、统计结果
     success = 0
     failed = 0
-    for _, item in results:
-        if item == 1:
+    for item in last_results:
+        # logger.debug(item)
+        if item[1][0] == 1:
             success += 1
         else:
             failed += 1
