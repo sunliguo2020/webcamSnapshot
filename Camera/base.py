@@ -8,29 +8,24 @@ import errno
 import logging
 import os
 import time
+import tkinter as tk
+
+import cv2
+from PIL import ImageTk, Image
 
 from utils.tool import portisopen
 
-# 创建一个文件处理程序并设置编码为UTF-8
-file_handler = logging.FileHandler(filename='Camera.log', encoding='utf-8')
-
-# 配置日志格式和级别
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-file_handler.setLevel(logging.DEBUG)
-
-# 创建一个 logger 实例
-logger = logging.getLogger('CameraLog')
-logger.addHandler(file_handler)
-logger.setLevel(logging.DEBUG)
-
-import tkinter as tk
-from PIL import ImageTk, Image
-import cv2
+logger = logging.getLogger('camera_logger')
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;50"
 
 
 def display_image(image_path):
+    """
+    显示截图
+    @param image_path:
+    @return:
+    """
     root = tk.Tk()
     root.title("显示截图")
 
@@ -78,7 +73,7 @@ class Camera:
             is_water_mark=True,
     ):
         """
-
+        初始化摄像头
         @param ip:
         @param password:
         @param camera_type:
@@ -135,12 +130,13 @@ class Camera:
                 self.watermark()
 
             # 保存截图
-
             # cv2.imencode(保存格式,保存图片)[1].tofile('保存路径')
             # cv2.imwrite(self.file_full_path, self.frame)
-            if cv2.imencode('.jpg', self.frame)[1].tofile(self.file_full_path):
+            # 保存截图
+            cv2.imencode('.jpg', self.frame)[1].tofile(self.file_full_path)
+            # 判断是否保存成功
+            if os.path.isfile(self.file_full_path):
                 logger.debug(f'截图成功,文件路径：{self.file_full_path}')
-                # display_image(self.file_full_path)
                 return 1, self.file_full_path
             else:
                 logger.debug('截图保存失败！')
