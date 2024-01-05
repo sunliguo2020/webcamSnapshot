@@ -23,9 +23,7 @@ from PIL import ImageTk, Image
 from Camera import Camera
 from utils.capture_pool import capture_pool
 
-logger = logging.getLogger('CameraLog')
-logger.setLevel(level=logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s- %(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s')
+logger = logging.getLogger('camera_log')
 
 
 class QueueHandler(logging.Handler):
@@ -43,6 +41,11 @@ class QueueHandler(logging.Handler):
         self.log_queue = log_queue
 
     def emit(self, record):
+        """
+        用于实际输出日志记录
+        @param record:
+        @return:
+        """
         self.log_queue.put(record)
 
 
@@ -68,7 +71,7 @@ class LogWidget:
         self.log_queue = queue.Queue()
 
         self.queue_handler = QueueHandler(self.log_queue)
-        self.queue_handler.setFormatter(formatter)
+        # self.queue_handler.setFormatter(formatter)
         logger.addHandler(self.queue_handler)
 
         # Start polling messages from the queue
@@ -142,18 +145,18 @@ def start_cap():
 
     # 摄像头类型
     client_type = numberChosen.get()
-    logger.debug(client_type)
+    logger.debug(f"类型为：{client_type}")
 
     # 如果是电脑摄像头，直接截图
     if client_type == '电脑':
         result = Camera(camera_type='computer').capture()
         if result[0] == 1:
-            logger.debug("截图成功！")
+            logger.debug(f"截图成功！图片路径为：{result[1]}")
             image_path = result[1]  # 获取截图文件的路径
             display_image(image_path)  # 显示捕获的图像
         return
 
-    # csv 文件的路径
+    # 网络摄像头截图csv 文件的路径
     csv_file = csv_entry.get()
 
     # 判断csv_file的合法性
