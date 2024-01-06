@@ -20,10 +20,10 @@ from tkinter.scrolledtext import ScrolledText
 
 from PIL import ImageTk, Image
 
-from Camera import Camera
+from lib.Camera import Camera
 from utils.capture_pool import capture_pool
 
-logger = logging.getLogger('camera_log')
+logger = logging.getLogger('camera_logger')
 
 
 class QueueHandler(logging.Handler):
@@ -68,10 +68,11 @@ class LogWidget:
         self.scrolled_text.tag_config('CRITICAL', foreground='red', underline=True)
 
         # Create a logging handler using a queue
+        # 创建一个使用队列的日志记录处理程序
         self.log_queue = queue.Queue()
-
         self.queue_handler = QueueHandler(self.log_queue)
-        # self.queue_handler.setFormatter(formatter)
+        formatter = logging.Formatter("%(asctime)s-%(name)s-%(levelname)s-%(filename)-8s: %(lineno)s line-%(message)s")
+        self.queue_handler.setFormatter(formatter)
         logger.addHandler(self.queue_handler)
 
         # Start polling messages from the queue
