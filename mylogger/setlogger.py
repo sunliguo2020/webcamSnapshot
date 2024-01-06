@@ -6,7 +6,7 @@
 """
 import logging
 import logging.config
-
+import os
 
 def configure_logger():
     """
@@ -14,6 +14,14 @@ def configure_logger():
 
     @return:
     """
+    # 检查日志文件是否存在，不存在则创建
+    log_file = 'log/camera.log'
+    if not os.path.isfile(log_file):
+        dir_name = os.path.dirname(log_file)
+        if not os.path.isdir(dir_name):
+            os.makedirs(dir_name)
+
+            
     log_config = {
         'version': 1,
         'formatters': {
