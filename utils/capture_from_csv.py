@@ -10,7 +10,7 @@ import logging
 import os.path
 import time
 
-from Camera import Camera
+from lib.Camera import Camera
 from utils.tool import convert_ip_list
 
 logger = logging.getLogger('Camera')
