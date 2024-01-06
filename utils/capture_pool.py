@@ -7,7 +7,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from Camera import Camera
+from lib.Camera import Camera
 from utils.tool import convert_ip_list
 
 logger = logging.getLogger('camera_log')
@@ -22,6 +22,7 @@ def capture_pool(csv_file, *args, **kwargs):
     @return:
     """
     # 1、创建参数列表
+    # 返回值为包含ip,password等的字典列表
     cam_list = convert_ip_list(csv_file)
     cam_args = [(item['ip'], item['password']) for item in cam_list]
     # 2、 创建线程池
