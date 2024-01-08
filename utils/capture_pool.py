@@ -27,8 +27,9 @@ def capture_pool(csv_file, *args, **kwargs):
     cam_args = [(item['ip'], item['password']) for item in cam_list]
     # 2、 创建线程池
     with ThreadPoolExecutor() as pool:
+        # results 是返回的结果列表
         results = pool.map(lambda arg: Camera(*arg, *args, **kwargs).capture(),
-                           cam_args)
+                           cam_args, timeout=20)
     # 每个ip和结果对应
     # (('172.24.99.101', 'admin'), (-1, None))
     last_results = list(zip(cam_args, results))
