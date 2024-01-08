@@ -84,6 +84,8 @@ class Client(object):
         print("保存截图成功：%s"%file_path)
 
     def GetStreamUri(self):
+        """
+        """
         obj = self.media.create_type('GetStreamUri')
         obj.StreamSetup = {'Stream': 'rtp-unicast', 'Transport': {'Protocol': 'RTSP'}}
         obj.ProfileToken = self.media_profile.token
@@ -161,3 +163,29 @@ class Client(object):
                 'ForcePersistence':True
             }
         )
+
+
+if __name__  == '__main__':
+    # Onvif对象
+    client = Client('192.168.1.176', 'admin', 'Admin123')
+
+    if not client.connect():
+        exit(0)
+
+    # 截图
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    client.Snapshot(file_dir=os.path.join(root_dir,"data"))
+
+    streamUri = client.GetStreamUri()
+    profiles = client.GetProfiles()
+    osds = client.GetOSDs()
+    info = client.GetDeviceInformation()
+    videoSourceConfig = client.GetVideoSourceConfigurations()
+
+    encoderConfig1 = client.GetVideoEncoderConfigurations()
+    client.SetVideoEncoderConfiguration()
+    encoderConfig2 = client.GetVideoEncoderConfigurations()
+
+    #test_client(client)
+
+    print("end")
