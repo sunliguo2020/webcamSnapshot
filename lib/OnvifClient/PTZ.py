@@ -1,5 +1,7 @@
 from time import sleep
-from Client.Client import Client
+
+from Client import Client
+
 
 class PTZ():
     def __init__(self, client: Client):
@@ -10,12 +12,12 @@ class PTZ():
         token = self.media_profile.token
         self.ptz = self.media.create_ptz_service()
 
-        #Get available PTZ services
+        # Get available PTZ services
         request = self.ptz.create_type('GetServiceCapabilities')
         Service_Capabilities = self.ptz.GetServiceCapabilities(request)
 
-        #Get PTZ status
-        status = self.ptz.GetStatus({'ProfileToken':token})
+        # Get PTZ status
+        status = self.ptz.GetStatus({'ProfileToken': token})
 
         # Get PTZ configuration options for getting option ranges
         request = self.ptz.create_type('GetConfigurationOptions')
@@ -30,7 +32,6 @@ class PTZ():
 
         self.requestr = self.ptz.create_type('RelativeMove')
         self.requestr.ProfileToken = self.media_profile.token
-
 
         self.requests = self.ptz.create_type('Stop')
         self.requests.ProfileToken = self.media_profile.token
@@ -52,9 +53,8 @@ class PTZ():
 
         self.ptz.Stop(self.requests)
 
-
-#Continuous move functions
-    def perform_move(self,timeout,x,y):
+    # Continuous move functions
+    def perform_move(self, timeout, x, y):
         # Start continuous move
         # ret = self.ptz.ContinuousMove(self.requestc)
 
@@ -93,6 +93,7 @@ class PTZ():
         sleep(2)
 
         # Relative move functions --NO ERRORS BUT CAMERA DOES NOT MOVE
+
     def move_relative(self, pan, tilt, velocity):
         # self.requestr.Translation.PanTilt._x = pan
         # self.requestr.Translation.PanTilt._y = tilt
@@ -121,35 +122,29 @@ class PTZ():
         sleep(timeout)
         self.stop()
 
-
-
     def move_y(self, val, timeout):
         # self.requestc.Velocity.PanTilt._x = 0.0
         # self.requestc.Velocity.PanTilt._y = velocity
-        self.perform_move(timeout,x=0.0,y=val)
+        self.perform_move(timeout, x=0.0, y=val)
 
     def move_x(self, val, timeout):
         # self.requestc.Velocity.PanTilt._x = velocity
         # self.requestc.Velocity.PanTilt._y = 0.0
-        self.perform_move(timeout,x=val,y=0.0)
+        self.perform_move(timeout, x=val, y=0.0)
 
-
-
-#Sets preset set, query and and go to
+    # Sets preset set, query and and go to
     def set_preset(self, name):
         self.requestp.PresetName = name
         self.requestp.PresetToken = '1'
-        self.preset = self.ptz.SetPreset(self.requestp)  #returns the PresetToken
+        self.preset = self.ptz.SetPreset(self.requestp)  # returns the PresetToken
 
     def get_preset(self):
         presets = self.ptz.GetPresets({'ProfileToken': self.media_profile.token})
-        print("presets:",presets)
+        print("presets:", presets)
 
     def goto_preset(self, name):
         try:
             self.ptz.GotoPreset(
                 {'ProfileToken': self.media_profile.token, "PresetToken": name})  # 移动到指定预置点位置
         except Exception as e:
-            print("云台控制失败：%s"%str(e))
-
-
+            print("云台控制失败：%s" % str(e))
