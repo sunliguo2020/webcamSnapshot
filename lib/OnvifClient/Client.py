@@ -1,15 +1,16 @@
 import os
-
-from onvif import ONVIFCamera,ONVIFError
-import zeep
-import time
 from datetime import datetime
+
 import requests
-from requests.auth import HTTPDigestAuth
+import zeep
 from PIL import Image
+from onvif import ONVIFCamera, ONVIFError
+from requests.auth import HTTPDigestAuth
+
 
 def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
+
 
 class Client(object):
     def __init__(self, ip: str, username: str, password: str):
@@ -26,12 +27,16 @@ class Client(object):
         """
 
         try:
+
+            # self.mycam = ONVIFCamera(self.ip, self.port, self.username, self.password)
+            # self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
+            #
             self.camera = ONVIFCamera(self.ip, 80, self.username, self.password)
+            # 创建媒体服务
             self.media = self.camera.create_media_service()
 
-            profiles = self.GetProfiles()
-            self.media_profile = profiles[0]  # 获取配置信息
-
+            # profiles = self.GetProfiles()
+            self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
 
             print("连接成功")
 
@@ -40,7 +45,8 @@ class Client(object):
             print("连接失败")
             print(e)
             return False
-    def Snapshot(self,file_dir='data'):
+
+    def Snapshot(self, file_dir='data'):
         """
         截图
         :return:
@@ -48,17 +54,18 @@ class Client(object):
         if not os.path.exists(file_dir):
             os.makedirs(file_dir)
 
-        file_path = os.path.join(file_dir,str(datetime.now().strftime("%Y%m%d_%H_%M_%S"))+".jpg")
+        file_path = os.path.join(file_dir, str(datetime.now().strftime("%Y%m%d_%H_%M_%S")) + ".jpg")
 
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
 
-        # response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
-        response = requests.get(res.Uri)
+        # 认证
+        response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
+        # response = requests.get(res.Uri)
 
         with open(file_path, 'wb') as f:  # 保存截图
             f.write(response.content)
 
-        print("保存截图成功：%s"%file_path)
+        print("保存截图成功：%s" % file_path)
 
     def Snapshot_resize(self, file_dir='data', size=None):
         """
@@ -69,7 +76,7 @@ class Client(object):
         if not os.path.exists(file_dir):
             os.makedirs(file_dir)
 
-        file_path = os.path.join(file_dir,str(datetime.now().strftime("%Y%m%d_%H_%M_%S"))+".jpg")
+        file_path = os.path.join(file_dir, str(datetime.now().strftime("%Y%m%d_%H_%M_%S")) + ".jpg")
 
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
         response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
@@ -81,7 +88,7 @@ class Client(object):
                 img = img.resize(size)
                 img.save(file_path)
 
-        print("保存截图成功：%s"%file_path)
+        print("保存截图成功：%s" % file_path)
 
     def GetStreamUri(self):
         """
@@ -96,7 +103,7 @@ class Client(object):
 
         if url.startswith("rtsp://"):
             url_suffix = url[7:]
-            url = "rtsp://%s:%s@%s"%(self.username,self.password,url_suffix)
+            url = "rtsp://%s:%s@%s" % (self.username, self.password, url_suffix)
 
         return url
 
@@ -118,7 +125,6 @@ class Client(object):
             "onvif://www.onvif.org/location/city/hs22"
         ])
         scopes2 = devicemgmt.GetScopes()
-
 
         info = devicemgmt.GetDeviceInformation()
         interfaces = devicemgmt.GetNetworkInterfaces()
@@ -153,19 +159,19 @@ class Client(object):
         encoderConfig[0]['Resolution']['Width'] = ratio[0]
         encoderConfig[0]['Resolution']['Height'] = ratio[1]
         encoderConfig[0]['Encoding'] = Encoding.upper()
-        encoderConfig[0]['RateControl']['FrameRateLimit'] =fps
+        encoderConfig[0]['RateControl']['FrameRateLimit'] = fps
         encoderConfig[0]['RateControl']['BitrateLimit'] = bitrate
         # encoderConfig[0]['GovLength'] = gop
 
         self.media.SetVideoEncoderConfiguration(
             {
-                'Configuration':encoderConfig[0],
-                'ForcePersistence':True
+                'Configuration': encoderConfig[0],
+                'ForcePersistence': True
             }
         )
 
 
-if __name__  == '__main__':
+if __name__ == '__main__':
     # Onvif对象
     client = Client('192.168.1.176', 'admin', 'Admin123')
 
@@ -174,7 +180,7 @@ if __name__  == '__main__':
 
     # 截图
     root_dir = os.path.dirname(os.path.abspath(__file__))
-    client.Snapshot(file_dir=os.path.join(root_dir,"data"))
+    client.Snapshot(file_dir=os.path.join(root_dir, "data"))
 
     streamUri = client.GetStreamUri()
     profiles = client.GetProfiles()
@@ -186,6 +192,6 @@ if __name__  == '__main__':
     client.SetVideoEncoderConfiguration()
     encoderConfig2 = client.GetVideoEncoderConfigurations()
 
-    #test_client(client)
+    # test_client(client)
 
     print("end")
