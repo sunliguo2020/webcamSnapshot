@@ -105,3 +105,15 @@ def convert_ip_list(csv_file):
                              'time': 0,
                              'status': False})
     return cam_list
+
+
+def get_cam_list(csv_file):
+    """
+    读取csv文件的前2字段，转换为 ip和密码的字典
+    @param csv_file:
+    @return: 包含ip，password，状态等字典的列表
+    """
+    # 将csv文件转为 摄像头对象的列表
+    with open(csv_file, 'r', encoding='utf-8') as fp:
+        for item in csv.DictReader(fp):
+            yield item
