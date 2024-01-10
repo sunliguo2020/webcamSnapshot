@@ -155,7 +155,12 @@ def start_cap():
             logger.debug(f"截图成功！图片路径为：{result[1]}")
             image_path = result[1]  # 获取截图文件的路径
             display_image(image_path)  # 显示捕获的图像
+        else:
+            logger.debug(f'电脑截图失败！')
         return
+
+    # 其余为海康 大华的rtsp协议
+    # onvif也是先获取rtsp地址，再截图
 
     # 网络摄像头截图csv 文件的路径
     csv_file = csv_entry.get()
@@ -178,6 +183,8 @@ def start_cap():
 
     elif client_type == '大华':
         capture_pool(csv_file, camera_type='dahua', folder_path=save_dir)
+    elif client_type == 'onvif':
+        capture_pool(csv_file, camera_type='onvif', folder_path=save_dir)
 
 
 def display_image(image_path):
@@ -218,12 +225,12 @@ select_dir = tk.StringVar()
 
 # 布局空间
 
-# 截图的类型 电脑摄像头  海康  大华
+# 截图的类型 电脑摄像头  海康  大华 onvif
 # 创建一个下拉列表
 tk.Label(root, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=0, sticky=tk.W, padx=20)
 number = tk.StringVar()
 numberChosen = ttk.Combobox(root, state='readonly', width=12, height=12, textvariable=number)
-numberChosen['values'] = ('海康', '大华', '电脑')  # 设置下拉列表的值
+numberChosen['values'] = ('海康', '大华','onvif', '电脑')  # 设置下拉列表的值
 numberChosen.grid(column=1, row=0, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
 
