@@ -13,6 +13,7 @@ import tkinter as tk
 import cv2
 from PIL import ImageTk, Image
 
+from lib.OnvifClient.Client import Client
 from utils.tool import portisopen
 
 logger = logging.getLogger('camera_logger')
@@ -61,10 +62,14 @@ class Camera:
             self,
             # ip地址
             ip=None,
+            # 用户名
+            # username="admin",
             # 默认密码
             password="admin",
             # 摄像头类型
             camera_type="hik",
+            # onvif port
+            onvif_port=80,
             # 保存截图的文件名
             file_name=None,
             # 截图保存路径
@@ -81,6 +86,8 @@ class Camera:
         @param folder_path:
         @param is_water_mark:
         """
+        self.onvif_port = onvif_port
+        self.username = 'admin'
         self.ip = ip or ""
         self.password = password
         self.camera_type = camera_type
@@ -207,6 +214,10 @@ class Camera:
 
     @property
     def camera_path(self):
+        """
+        rtsp 视频流地址
+        @return:
+        """
         # camera_type 类型 dahua hik computer
         if self.camera_type == "dahua" and self.ip:
             return f"rtsp://admin:{self.password}@{self.ip}:554/cam/realmonitor?channel=1&subtype=0"
@@ -218,6 +229,13 @@ class Camera:
             return (
                 f"rtsp://admin:{self.password}@{self.ip}:554/h264/ch34/main/av_stream"
             )
+        # onvif 判断
+        elif self.camera_type == "onvif" and self.ip and self.onvif_port:
+            client = Client(ip=self.ip, username=self.username, password=self.password)
+            # 先连接摄像机
+            if not client.connect():
+                exit(0)
+            return client.GetStreamUri()
         else:
             raise ValueError("camera type error!only dahua hik computer")
 
@@ -250,6 +268,7 @@ if __name__ == "__main__":
     # result = cam1.capture()
     # print(result)
 
-    cam1 = Camera(camera_type="computer")
+    cam1 = Camera(camera_type="onvif", ip="192.168.1.201", username="admin", password="qazwsx123",
+                  onvif_port=80)
     cam1.is_water_mark = True
     print(cam1.capture())
