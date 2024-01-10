@@ -1,20 +1,22 @@
 import os
 from datetime import datetime
-
+import logging
 import requests
 import zeep
 from PIL import Image
 from onvif import ONVIFCamera, ONVIFError
 from requests.auth import HTTPDigestAuth
 
+logger = logging.getLogger(__name__)
 
 def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
 
 
 class Client(object):
-    def __init__(self, ip: str, username: str, password: str):
+    def __init__(self, ip: str, port=80, username: str = 'admin', password: str = 'admin'):
         self.ip = ip
+        self.port = port
         self.username = username
         self.password = password
         zeep.xsd.simple.AnySimpleType.pythonvalue = zeep_pythonvalue
@@ -25,25 +27,21 @@ class Client(object):
         连接相机
         :return:
         """
-
         try:
-
             # self.mycam = ONVIFCamera(self.ip, self.port, self.username, self.password)
-            # self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
             #
-            self.camera = ONVIFCamera(self.ip, 80, self.username, self.password)
+            self.camera = ONVIFCamera(self.ip, self.port, self.username, self.password)
             # 创建媒体服务
             self.media = self.camera.create_media_service()
 
             # profiles = self.GetProfiles()
             self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
 
-            print("连接成功")
+            logger.debug(f'连接相机成功，IP地址：{self.ip}')
 
             return True
         except Exception as e:
-            print("连接失败")
-            print(e)
+            logger.debug(f"连接相机失败，IP地址：{self.ip},错误信息：{e}")
             return False
 
     def Snapshot(self, file_dir='data'):
@@ -53,8 +51,9 @@ class Client(object):
         """
         if not os.path.exists(file_dir):
             os.makedirs(file_dir)
+        file_name = str(self.ip) + str(datetime.now().strftime("%Y%m%d_%H_%M_%S")) + ".jpg"
 
-        file_path = os.path.join(file_dir, str(datetime.now().strftime("%Y%m%d_%H_%M_%S")) + ".jpg")
+        file_path = os.path.join(file_dir, file_name)
 
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
 
@@ -92,6 +91,8 @@ class Client(object):
 
     def GetStreamUri(self):
         """
+        获取RTSP视频流地址
+        @return:
         """
         obj = self.media.create_type('GetStreamUri')
         obj.StreamSetup = {'Stream': 'rtp-unicast', 'Transport': {'Protocol': 'RTSP'}}
