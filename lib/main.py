@@ -69,19 +69,20 @@ def test_client():
     root_dir = os.path.dirname(os.path.abspath(__file__))
     client.Snapshot(file_dir=os.path.join(root_dir, "data"))
 
+    # 获取视频流地址
     streamUri = client.GetStreamUri()
     print(streamUri)
-    profiles = client.GetProfiles()
-    osds = client.GetOSDs()
-    # print(osds)
-    # info = client.GetDeviceInformation()
-    videoSourceConfig = client.GetVideoSourceConfigurations()
-
-    encoderConfig1 = client.GetVideoEncoderConfigurations()
-    # client.SetVideoEncoderConfiguration()
-    encoderConfig2 = client.GetVideoEncoderConfigurations()
-
-    # test_client(client)
+    # profiles = client.GetProfiles()
+    # osds = client.GetOSDs()
+    # # print(osds)
+    # # info = client.GetDeviceInformation()
+    # videoSourceConfig = client.GetVideoSourceConfigurations()
+    #
+    # encoderConfig1 = client.GetVideoEncoderConfigurations()
+    # # client.SetVideoEncoderConfiguration()
+    # encoderConfig2 = client.GetVideoEncoderConfigurations()
+    #
+    # # test_client(client)
 
     print("end")
 
