@@ -213,7 +213,8 @@ def display_image(image_path):
 root = tk.Tk()
 # 标题
 root.title('网络摄像头截图采集小工具(多线程版本)')
-root.geometry('650x450+300+200')  # 定义窗口显示大小和显示位置
+# 定义窗口显示大小和显示位置
+root.geometry('650x450+300+200')
 
 frame1 = tk.Frame(root)
 console = LogWidget(frame1)
@@ -230,7 +231,7 @@ select_dir = tk.StringVar()
 tk.Label(root, text='摄像头类型:', font='微软雅黑 12').grid(column=0, row=0, sticky=tk.W, padx=20)
 number = tk.StringVar()
 numberChosen = ttk.Combobox(root, state='readonly', width=12, height=12, textvariable=number)
-numberChosen['values'] = ('海康', '大华','onvif', '电脑')  # 设置下拉列表的值
+numberChosen['values'] = ('海康', '大华', 'onvif', '电脑')  # 设置下拉列表的值
 numberChosen.grid(column=1, row=0, sticky=tk.W)  # 设置其在界面中出现的位置  column代表列   row 代表行
 numberChosen.current(0)  # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标
 
@@ -267,4 +268,6 @@ capture_button = tk.Button(root,
                            command=lambda: threading.Thread(target=start_cap).start())
 capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
-root.mainloop()
+
+if __name__ == '__main__':
+    root.mainloop()

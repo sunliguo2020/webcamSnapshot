@@ -117,3 +117,6 @@ def get_cam_list(csv_file):
     with open(csv_file, 'r', encoding='utf-8') as fp:
         for item in csv.DictReader(fp):
             yield item
+if __name__ == '__main__':
+   for item in  get_cam_list('../txt/世纪东城-雄迈.csv'):
+       print(item)

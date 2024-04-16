@@ -56,6 +56,7 @@ class Camera:
     """
     一个摄像头的类
     可以捕捉支持rtsp协议的网络摄像头，或者是电脑的摄像头
+    或者通过onvif协议获取rtsp的地址
     """
 
     def __init__(
@@ -63,7 +64,7 @@ class Camera:
             # ip地址
             ip=None,
             # 用户名
-            # username="admin",
+            username="admin",
             # 默认密码
             password="admin",
             # 摄像头类型
@@ -86,12 +87,19 @@ class Camera:
         @param folder_path:
         @param is_water_mark:
         """
+        #
+        logger.debug(f"__init__参数:ip:{ip},"
+                     f"username:{username},"
+                     f"password:{password},"
+                     f"onvif_port:{onvif_port}")
+
         self.onvif_port = onvif_port
-        self.username = 'admin'
+        self.username = username
         self.ip = ip or ""
         self.password = password
         self.camera_type = camera_type
         self.frame = None
+        # 是否添加水印
         self.is_water_mark = is_water_mark
 
         # 截图的保存文件名是ip_password_camear_type_strftime.jpg
@@ -106,8 +114,6 @@ class Camera:
             except OSError as e:
                 if e.errno != errno.EEXIST:  # 如果不是 "文件已存在" 错误
                     raise  # 如果不是文件已存在的错误，则抛出异常
-        else:
-            logger.debug(f"目录 {self.folder_path} 已经存在")
 
         self.file_full_path = os.path.join(self.folder_path, self.file_name)
 
@@ -120,6 +126,7 @@ class Camera:
         :return: 返回1 截图成功
         假设这个函数返回了一个元组（status, file_path）
         """
+        logger.debug(f"ip:{self.ip}开始截图")
         # 检查摄像头是否可用
         if not self.check_camera():
             logger.debug(f"{self.ip} 554 端口没有打开或者网络不通")
@@ -129,7 +136,9 @@ class Camera:
             cam = cv2.VideoCapture(self.camera_path)
             if not cam.isOpened():
                 raise RuntimeError("视频对象读取失败")
-
+            else:
+                logger.debug(f"{self.ip} 摄像头打开成功")
+            # 读取摄像头
             ret, self.frame = cam.read()
 
             # 添加水印
@@ -157,12 +166,16 @@ class Camera:
             # 释放资源
             if 'cam' in locals() and cam and cam.isOpened():
                 cam.release()
+            if self.frame is not None:
+                del self.frame
+
             cv2.destroyAllWindows()
 
     def check_camera(self):
         """
         检查摄像头是否可用
         """
+        logger.debug(f"检测camera是否可用:{self.camera_path}")
         if self.camera_path != 0 and not portisopen(self.ip, 554):
             return False
         return True
@@ -231,7 +244,7 @@ class Camera:
             )
         # onvif 判断
         elif self.camera_type == "onvif" and self.ip and self.onvif_port:
-            client = Client(ip=self.ip, username=self.username, password=self.password)
+            client = Client(ip=self.ip, port=self.onvif_port, username=self.username, password=self.password)
             # 先连接摄像机
             if not client.connect():
                 exit(0)
@@ -265,9 +278,13 @@ if __name__ == "__main__":
     # # 测试海康摄像头
     # cam1 = Camera('192.168.1.111', password='FYKWXY', camera_type='hik')
     # # print(cam1)
-    # result = cam1.capture()
-    # print(result)
 
+    # 测试电脑
+    cam1 = Camera(camera_type="computer")
+    result = cam1.capture()
+    print(result)
+
+    # 测试网络摄像头
     cam1 = Camera(camera_type="onvif", ip="192.168.1.201", username="admin", password="qazwsx123",
                   onvif_port=80)
     cam1.is_water_mark = True
