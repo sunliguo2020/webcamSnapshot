@@ -8,10 +8,13 @@ import logging
 
 # 配置日志
 from mylogger.setlogger import configure_logger
+
 configure_logger()
 
 from capture_tk import root
+
 logger = logging.getLogger('camera_logger')
+
 
 def main():
     print('Hello World!')
