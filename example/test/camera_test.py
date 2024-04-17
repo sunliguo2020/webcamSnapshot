@@ -4,6 +4,6 @@
 @contact: QQ376440229
 @Created on: 2023-09-17 11:53
 """
-from Camera import Camera
+from lib.Camera import Camera
 cam1 = Camera()
 cam1.capture()
