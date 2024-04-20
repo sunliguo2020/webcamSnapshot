@@ -8,8 +8,6 @@ from PIL import Image
 from onvif import ONVIFCamera, ONVIFError
 from requests.auth import HTTPDigestAuth
 
-from mylogger.setlogger import configure_logger
-
 logger = logging.getLogger("camera_logger")
 
 
