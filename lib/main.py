@@ -1,9 +1,14 @@
 import logging
 import os
 
+from mylogger.setlogger import configure_logger
+
+configure_logger()
 from OnvifClient.CameraClient import CameraClient
-# from OnvifClient.CameraClient import logger
+
 logger = logging.getLogger('camera_logger')
+
+
 # from OnvifClient.PTZ import PTZ
 #
 #
@@ -62,7 +67,7 @@ logger = logging.getLogger('camera_logger')
 
 
 def test_client():
-    client = CameraClient(ip='192.168.11.64', username='test', password='shiji123')
+    client = CameraClient(ip='192.168.1.64', username='test', password='shiji123')
 
     if not client.connect():
         exit(0)
