@@ -1,10 +1,10 @@
 from time import sleep
 
-from Client import Client
+from Client import CameraClient
 
 
 class PTZ():
-    def __init__(self, client: Client):
+    def __init__(self, client: CameraClient):
 
         self.media = client.media
 
