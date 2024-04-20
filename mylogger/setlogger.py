@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """
+项目全局logger配置
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2024-01-05 20:55
@@ -21,10 +22,10 @@ def configure_logger():
     log_file = os.path.join(project_root, 'log', 'camera.log')
 
     if not os.path.isfile(log_file):
-            dir_name = os.path.dirname(log_file)
-            if not os.path.isdir(dir_name):
-                os.makedirs(dir_name)
-
+        dir_name = os.path.dirname(log_file)
+        if not os.path.isdir(dir_name):
+            os.makedirs(dir_name)
+    # 日志配置
     log_config = {
         'version': 1,
         'formatters': {
@@ -57,7 +58,6 @@ def configure_logger():
     logging.config.dictConfig(log_config)
 
 
-configure_logger()
 if __name__ == '__main__':
     # 配置 logger
     configure_logger()
