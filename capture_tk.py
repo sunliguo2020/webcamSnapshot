@@ -21,7 +21,8 @@ from tkinter.scrolledtext import ScrolledText
 from PIL import ImageTk, Image
 
 from lib.Camera import Camera
-from utils.capture_pool import capture_pool
+from utils.capture_pool import capture_pool,onvif_pool
+
 
 logger = logging.getLogger('camera_logger')
 
@@ -184,7 +185,8 @@ def start_cap():
     elif client_type == '大华':
         capture_pool(csv_file, camera_type='dahua', folder_path=save_dir)
     elif client_type == 'onvif':
-        capture_pool(csv_file, camera_type='onvif', folder_path=save_dir)
+        # capture_pool(csv_file, camera_type='onvif', folder_path=save_dir)
+        onvif_pool(csv_file, folder_path=save_dir)
 
 
 def display_image(image_path):

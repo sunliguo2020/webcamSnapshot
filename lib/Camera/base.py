@@ -13,7 +13,7 @@ import tkinter as tk
 import cv2
 from PIL import ImageTk, Image
 
-from lib.OnvifClient.CameraClient import CameraClient
+from lib.OnvifClient import OnvifClient
 from utils.tool import portisopen
 
 logger = logging.getLogger('camera_logger')
@@ -229,6 +229,10 @@ class Camera:
     def camera_path(self):
         """
         rtsp 视频流地址
+        电脑摄像头为 0
+        海康和大华为默认的，
+        onvif需要请求获取
+
         @return:
         """
         # camera_type 类型 dahua hik computer
@@ -239,18 +243,17 @@ class Camera:
             return 0
         # 海康威视
         elif self.camera_type == "hik" and self.ip:
-            return (
-                f"rtsp://admin:{self.password}@{self.ip}:554/h264/ch34/main/av_stream"
-            )
+            return f"rtsp://admin:{self.password}@{self.ip}:554/h264/ch34/main/av_stream"
+
         # onvif 判断
         elif self.camera_type == "onvif" and self.ip and self.onvif_port:
-            client = CameraClient(ip=self.ip,
-                                  port=self.onvif_port,
-                                  username=self.username,
-                                  password=self.password)
+            client = OnvifClient(ip=self.ip,
+                                 port=self.onvif_port,
+                                 username=self.username,
+                                 password=self.password)
             # 先连接摄像机
             if not client.connect():
-                exit(0)
+                raise ConnectionError
             return client.GetStreamUri()
         else:
             raise ValueError("camera type error!only dahua hik computer")
@@ -288,7 +291,10 @@ if __name__ == "__main__":
     print(result)
 
     # 测试网络摄像头
-    cam1 = Camera(camera_type="onvif", ip="192.168.1.201", username="admin", password="qazwsx123",
+    cam1 = Camera(camera_type="onvif",
+                  ip="192.168.1.201",
+                  username="admin",
+                  password="qazwsx123",
                   onvif_port=80)
     cam1.is_water_mark = True
     print(cam1.capture())

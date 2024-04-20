@@ -15,12 +15,14 @@ def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
 
 
-class CameraClient(object):
+class OnvifClient(object):
     def __init__(self,
                  ip: str,
                  port=80,
                  username: str = 'admin',
-                 password: str = 'admin'):
+                 password: str = 'admin',
+                 folder_path=None
+                 ):
         self.ip = ip
         self.port = port
         self.username = username
@@ -30,7 +32,10 @@ class CameraClient(object):
         self.media_profile = None
         zeep.xsd.simple.AnySimpleType.pythonvalue = zeep_pythonvalue
         # zeep.xsd.simple.AnySimpleType.pythonvalue = lambda x:x
-        self.folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'captures')
+        # 默认保存的文件夹
+
+        self.folder_path = folder_path if folder_path else \
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'captures')
 
     def connect(self):
         """
@@ -62,31 +67,33 @@ class CameraClient(object):
         file_name = '_'.join([str(i) for i in file_name_list]) + '.jpg'
         return file_name
 
-    def getFilePath(self, folder=None):
+    def getFilePath(self, folder_path=None):
         """
-        获取文件路径
+        获取默认文件路径，并确保目录已经被创建
         @param folder:
         @return:
         """
-        folder = folder if folder is not None else self.folder
+        folder_path = folder_path if folder_path is not None else self.folder_path
 
-        if not os.path.isdir(folder):
-            os.makedirs(folder)
+        if not os.path.isdir(folder_path):
+            os.makedirs(folder_path)
 
-        file_path = os.path.join(folder, self.getFileName())
+        file_path = os.path.join(folder_path, self.getFileName())
 
         return file_path
 
     def Snapshot(self, file_dir=None):
         """
         截图 拍摄快照
+        :param file_dir: 文件保存路径，如果为空，则使用默认路径
         :return:
+        @type file_dir: string
         """
         # 在尝试使用media属性之前，确保已经连接到相机
         if self.media is None and not self.connect():
             logger.error('无法连接到相机，无法拍摄快照')
             return False
-
+        # 如果没有传入保存的目录，则使用默认的保存目录
         if file_dir is not None:
             if not os.path.isdir(file_dir):
                 os.makedirs(file_dir)
@@ -215,7 +222,7 @@ class CameraClient(object):
 
 if __name__ == '__main__':
     # Onvif对象
-    client = CameraClient(ip='192.168.1.64', username='test', password='shiji123')
+    client = OnvifClient(ip='192.168.1.64', username='test', password='shiji123')
 
     # 截图
     root_dir = os.path.dirname(os.path.abspath(__file__))

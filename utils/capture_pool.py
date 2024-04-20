@@ -8,6 +8,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 
 from lib.Camera import Camera
+from lib.OnvifClient import OnvifClient
 from utils.tool import get_cam_list
 
 logger = logging.getLogger('camera_logger')
@@ -16,7 +17,7 @@ logger = logging.getLogger('camera_logger')
 def capture_pool(csv_file, *args, **kwargs):
     """
     使用线程池截图
-    @param csv_file:
+    @param csv_file:保存ip,port,user,password的csv文件
     @param args:
     @param kwargs:
     @return:
@@ -54,6 +55,28 @@ def capture_pool(csv_file, *args, **kwargs):
     logger.debug(f"统计：成功{success}失败{failed}")
 
 
+def onvif_pool(csv_file, *arg, **kwargs):
+    """
+
+    @param csv_file:
+    @param arg:
+    @param kwargs:
+    @return:
+    """
+    cam_list = get_cam_list(csv_file)
+    logger.debug(cam_list)
+    try:
+        with ThreadPoolExecutor() as pool:
+            # results 是返回的结果列表
+            results = pool.map(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot(), cam_list)
+    except Exception as e:
+        logger.error(f"在线程池执行中发生错误：{e}")
+    # logger.debug(results)
+    for result in results:
+        print(result)
+
+
 if __name__ == '__main__':
     logger.debug('main')
-    capture_pool(r"../txt/ruizhi.csv", folder_path="2023-11-13")
+    # capture_pool(r"../txt/ruizhi.csv", folder_path="2023-11-13")
+    onvif_pool('../txt/世纪东城-雄迈.csv')
