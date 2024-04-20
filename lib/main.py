@@ -1,12 +1,6 @@
-import logging
 import os
-
-from mylogger.setlogger import configure_logger
-
-configure_logger()
+from mylogger import logger
 from OnvifClient.CameraClient import CameraClient
-
-logger = logging.getLogger('camera_logger')
 
 
 # from OnvifClient.PTZ import PTZ
@@ -124,7 +118,7 @@ def test_find():
 
 
 if __name__ == '__main__':
-    print("ONVIFClientManager")
+    logger.debug("ONVIFClientManager")
 
     # test_find()
     test_client()
