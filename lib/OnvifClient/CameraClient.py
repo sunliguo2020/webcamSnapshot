@@ -1,35 +1,45 @@
+import logging
 import os
 from datetime import datetime
-import logging
+
 import requests
 import zeep
 from PIL import Image
 from onvif import ONVIFCamera, ONVIFError
 from requests.auth import HTTPDigestAuth
 
-logger = logging.getLogger(__name__)
+from mylogger.setlogger import configure_logger
+
+logger = logging.getLogger("camera_logger")
+
 
 def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
 
 
-class Client(object):
-    def __init__(self, ip: str, port=80, username: str = 'admin', password: str = 'admin'):
+class CameraClient(object):
+    def __init__(self,
+                 ip: str,
+                 port=80,
+                 username: str = 'admin',
+                 password: str = 'admin'):
         self.ip = ip
         self.port = port
         self.username = username
         self.password = password
+        self.camera = None
+        self.media = None
+        self.media_profile = None
         zeep.xsd.simple.AnySimpleType.pythonvalue = zeep_pythonvalue
         # zeep.xsd.simple.AnySimpleType.pythonvalue = lambda x:x
+        self.folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'captures')
 
     def connect(self):
         """
-        连接相机
+        连接相机并初始化media属性
         :return:
         """
         try:
-            # self.mycam = ONVIFCamera(self.ip, self.port, self.username, self.password)
-            #
             self.camera = ONVIFCamera(self.ip, self.port, self.username, self.password)
             # 创建媒体服务
             self.media = self.camera.create_media_service()
@@ -44,33 +54,66 @@ class Client(object):
             logger.debug(f"连接相机失败，IP地址：{self.ip},错误信息：{e}")
             return False
 
-    def Snapshot(self, file_dir='data'):
+    def getFileName(self):
         """
-        截图
+        获取文件名
+        @return:
+        """
+        datetime_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        file_name_list = [self.ip, self.username, self.password, 'onvif', datetime_str]
+        file_name = '_'.join([str(i) for i in file_name_list]) + '.jpg'
+        return file_name
+
+    def getFilePath(self, folder=None):
+        """
+        获取文件路径
+        @param folder:
+        @return:
+        """
+        folder = folder if folder is not None else self.folder
+
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+
+        file_path = os.path.join(folder, self.getFileName())
+
+        return file_path
+
+    def Snapshot(self, file_dir=None):
+        """
+        截图 拍摄快照
         :return:
         """
-        if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
-        file_name = str(self.ip) + str(datetime.now().strftime("%Y%m%d_%H_%M_%S")) + ".jpg"
+        # 在尝试使用media属性之前，确保已经连接到相机
+        if self.media is None and not self.connect():
+            logger.error('无法连接到相机，无法拍摄快照')
+            return False
 
-        file_path = os.path.join(file_dir, file_name)
+        if file_dir is not None:
+            if not os.path.isdir(file_dir):
+                os.makedirs(file_dir)
+
+            file_path = os.path.join(file_dir, self.getFileName())
+        else:
+            file_path = self.getFilePath()
 
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
 
         # 认证
         response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
-        # response = requests.get(res.Uri)
 
         with open(file_path, 'wb') as f:  # 保存截图
             f.write(response.content)
 
-        print("保存截图成功：%s" % file_path)
+        logger.debug("保存截图成功：%s" % file_path)
 
     def Snapshot_resize(self, file_dir='data', size=None):
         """
         截图并调整尺寸
         :param picname: 保存截图的文件名
         :param new_size: 调整后的尺寸，格式为(width, height)
+        @param size:
+        @param file_dir:
         """
         if not os.path.exists(file_dir):
             os.makedirs(file_dir)
@@ -174,25 +217,23 @@ class Client(object):
 
 if __name__ == '__main__':
     # Onvif对象
-    client = Client('192.168.1.176', 'admin', 'Admin123')
-
-    if not client.connect():
-        exit(0)
+    client = CameraClient(ip='192.168.1.64', username='test', password='shiji123')
 
     # 截图
     root_dir = os.path.dirname(os.path.abspath(__file__))
     client.Snapshot(file_dir=os.path.join(root_dir, "data"))
-
-    streamUri = client.GetStreamUri()
-    profiles = client.GetProfiles()
-    osds = client.GetOSDs()
-    info = client.GetDeviceInformation()
-    videoSourceConfig = client.GetVideoSourceConfigurations()
-
-    encoderConfig1 = client.GetVideoEncoderConfigurations()
-    client.SetVideoEncoderConfiguration()
-    encoderConfig2 = client.GetVideoEncoderConfigurations()
+    client.Snapshot()
+    # print(client.getFilePath())
+    # streamUri = client.GetStreamUri()
+    # profiles = client.GetProfiles()
+    # osds = client.GetOSDs()
+    # info = client.GetDeviceInformation()
+    # videoSourceConfig = client.GetVideoSourceConfigurations()
+    #
+    # encoderConfig1 = client.GetVideoEncoderConfigurations()
+    # client.SetVideoEncoderConfiguration()
+    # encoderConfig2 = client.GetVideoEncoderConfigurations()
 
     # test_client(client)
 
-    print("end")
+    # print("end")

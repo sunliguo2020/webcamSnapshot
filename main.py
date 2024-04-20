@@ -13,7 +13,7 @@ configure_logger()
 
 from capture_tk import root
 
-logger = logging.getLogger('camera_logger')
+# logger = logging.getLogger('camera_logger')
 
 
 def main():

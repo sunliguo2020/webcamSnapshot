@@ -13,7 +13,7 @@ import tkinter as tk
 import cv2
 from PIL import ImageTk, Image
 
-from lib.OnvifClient.Client import Client
+from lib.OnvifClient.CameraClient import CameraClient
 from utils.tool import portisopen
 
 logger = logging.getLogger('camera_logger')
@@ -244,7 +244,10 @@ class Camera:
             )
         # onvif 判断
         elif self.camera_type == "onvif" and self.ip and self.onvif_port:
-            client = Client(ip=self.ip, port=self.onvif_port, username=self.username, password=self.password)
+            client = CameraClient(ip=self.ip,
+                                  port=self.onvif_port,
+                                  username=self.username,
+                                  password=self.password)
             # 先连接摄像机
             if not client.connect():
                 exit(0)

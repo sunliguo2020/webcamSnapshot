@@ -1,8 +1,9 @@
+import logging
 import os
 
-from OnvifClient.Client import Client
-
-
+from OnvifClient.CameraClient import CameraClient
+# from OnvifClient.CameraClient import logger
+logger = logging.getLogger('camera_logger')
 # from OnvifClient.PTZ import PTZ
 #
 #
@@ -61,7 +62,7 @@ from OnvifClient.Client import Client
 
 
 def test_client():
-    client = Client('192.168.1.201', 'admin', 'qazwsx123')
+    client = CameraClient(ip='192.168.11.64', username='test', password='shiji123')
 
     if not client.connect():
         exit(0)
@@ -88,6 +89,10 @@ def test_client():
 
 
 def test_find():
+    """
+    查找onvif设备
+    @return:
+    """
     # http://www.onvif.org/onvif/ver10/network/wsdl/remotediscovery.wsdl
 
     # from wsdiscovery.threaded import NetworkingThread, MULTICAST_PORT
@@ -110,6 +115,7 @@ def test_find():
     print("------------------start------------------------")
     for client in clients:
         print(client)
+        logger.debug(client)
 
 
 if __name__ == '__main__':
