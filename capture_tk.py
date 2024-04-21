@@ -71,7 +71,8 @@ class LogWidget:
         # 创建一个使用队列的日志记录处理程序
         self.log_queue = queue.Queue()
         self.queue_handler = QueueHandler(self.log_queue)
-        formatter = logging.Formatter("%(asctime)s-%(name)s-%(levelname)s-%(filename)-8s: %(lineno)s line-%(message)s")
+        formatter = logging.Formatter("%(asctime)s-%(name)s-%(levelname)s-%(filename)-8s: %(lineno)s line-%(message)s",
+                                      datefmt='%Y-%m-%d %H:%M:%S')
         self.queue_handler.setFormatter(formatter)
         logger.addHandler(self.queue_handler)
 
@@ -174,6 +175,8 @@ def start_cap():
     save_dir = os.path.join((dir_entry.get() or
                              os.path.splitext(os.path.basename(csv_file))[0]),
                             time.strftime('%Y-%m-%d', time.localtime()))
+    if os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
     # 生成打开该路径的按钮
     open_button.configure(command=lambda: os.startfile(save_dir))
 
