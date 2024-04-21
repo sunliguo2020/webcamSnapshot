@@ -6,6 +6,7 @@
 """
 import os
 from datetime import datetime
+from urllib.parse import quote
 
 import cv2
 
@@ -25,12 +26,12 @@ def cv2_cap(ip=None, user='admin', password='shiji123'):
     if not os.path.exists(floder):
         os.makedirs(floder)
 
-    file_name = f"{ip}_{user}_{password}_{datetime_str}"
+    file_name = f"{ip}_{user}_{password}_{datetime_str}.jpg"
 
     file_full_path = os.path.join(floder, file_name)
 
     # 0.sdp主码流 1次码流
-    rtsp_url = f"rtsp://{ip}:554/user={user}&password={password}&channel=1&stream=0.sdp?real_stream"
+    rtsp_url = f"rtsp://{ip}:554/user={user}&password={quote(password)}&channel=1&stream=0.sdp?real_stream"
     cap = cv2.VideoCapture(rtsp_url)
     if not cap.isOpened():
         return
