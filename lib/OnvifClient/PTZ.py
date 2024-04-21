@@ -1,10 +1,10 @@
 from time import sleep
 
-from Client import CameraClient
+from lib import OnvifClient
 
 
-class PTZ():
-    def __init__(self, client: CameraClient):
+class PTZ:
+    def __init__(self, client: OnvifClient):
 
         self.media = client.media
 
