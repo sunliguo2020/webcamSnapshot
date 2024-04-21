@@ -32,10 +32,11 @@ class OnvifClient(object):
         self.media_profile = None
         zeep.xsd.simple.AnySimpleType.pythonvalue = zeep_pythonvalue
         # zeep.xsd.simple.AnySimpleType.pythonvalue = lambda x:x
-        # 默认保存的文件夹
 
+        # 默认保存的文件夹
         self.folder_path = folder_path if folder_path else \
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'captures')
+            os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         datetime.now().strftime('%Y-%m-%d'), 'captures')
 
     def connect(self):
         """
@@ -70,7 +71,7 @@ class OnvifClient(object):
     def getFilePath(self, folder_path=None):
         """
         获取默认文件路径，并确保目录已经被创建
-        @param folder:
+        @param folder_path:
         @return:
         """
         folder_path = folder_path if folder_path is not None else self.folder_path
