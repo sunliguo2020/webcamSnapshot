@@ -22,10 +22,10 @@ def capture_pool(csv_file, *args, **kwargs):
     @param kwargs:
     @return:
     """
-    # 1、创建参数列表
-    # 返回值为包含ip,password等的字典列表
+    # 1、包含ip,password等的字典的生成式
     cam_list = get_cam_list(csv_file)
     logger.debug(cam_list)
+
     # 2、 创建线程池
     try:
         with ThreadPoolExecutor() as pool:
@@ -66,14 +66,25 @@ def onvif_pool(csv_file, *arg, **kwargs):
     cam_list = get_cam_list(csv_file)
     logger.debug(cam_list)
     try:
+        futures_list = []
         with ThreadPoolExecutor() as pool:
             # results 是返回的结果列表
-            results = pool.map(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot(), cam_list)
+            # results = pool.map(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot(), cam_list)
+            # futures_list = [pool.submit(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot()) for inkwargs in
+            #                 cam_list]
+            for item in cam_list:
+                future = pool.submit(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot(), item)
+                futures_list.append(future)
     except Exception as e:
         logger.error(f"在线程池执行中发生错误：{e}")
-    # logger.debug(results)
-    for result in results:
-        print(result)
+
+    pool.shutdown()
+    success = 0
+    for future in futures_list:
+        # logger.debug(future.result())
+        if future.result():
+            success += 1
+    logger.debug(f"统计：成功{success}失败{len(futures_list) - success}")
 
 
 if __name__ == '__main__':

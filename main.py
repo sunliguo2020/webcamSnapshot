@@ -7,20 +7,13 @@
 import logging
 
 # 配置日志
-import mylogger
+from mylogger import setlogger
 
+setlogger.configure_logger()
+logger = logging.getLogger('camera_logger')
 from capture_tk import root
 
-logger = logging.getLogger('camera_logger')
-
-
-def main():
-    print('Hello World!')
-
-
 if __name__ == '__main__':
-    # main()
-    # logger.warning('我是谁')
     # cam1 = Camera(camera_type="computer")
     # cam1.is_water_mark = True
     # print(cam1.capture())

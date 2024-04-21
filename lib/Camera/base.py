@@ -183,9 +183,10 @@ class Camera:
     def watermark(self):
         """
         截图添加水印信息：图片的名字
-        :param frame:
         :return:
         """
+        if self.frame is None:
+            raise Exception("截图失败或未打开摄像头，无法添加水印信息！")
         # 添加水印信息
         text_watermark_x = 0
         text_watermark_y = 200
