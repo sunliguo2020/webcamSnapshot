@@ -21,8 +21,7 @@ from tkinter.scrolledtext import ScrolledText
 from PIL import ImageTk, Image
 
 from lib.Camera import Camera
-from utils.capture_pool import capture_pool,onvif_pool
-
+from utils.capture_pool import capture_pool, onvif_pool
 
 logger = logging.getLogger('camera_logger')
 
@@ -175,6 +174,8 @@ def start_cap():
     save_dir = os.path.join((dir_entry.get() or
                              os.path.splitext(os.path.basename(csv_file))[0]),
                             time.strftime('%Y-%m-%d', time.localtime()))
+    # 生成打开该路径的按钮
+    open_button.configure(command=lambda: os.startfile(save_dir))
 
     logger.info(f'摄像头类型：{client_type}')
     logger.info(f'截图保存路径：{save_dir}')
@@ -214,7 +215,7 @@ def display_image(image_path):
 
 root = tk.Tk()
 # 标题
-root.title('网络摄像头截图采集小工具(多线程版本)')
+root.title('网络摄像头截图小工具')
 # 定义窗口显示大小和显示位置
 root.geometry('650x450+300+200')
 
@@ -270,6 +271,8 @@ capture_button = tk.Button(root,
                            command=lambda: threading.Thread(target=start_cap).start())
 capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
-
+# 打开截图目录
+open_button = tk.Button(root, text='打开截图保存路径')
+open_button.grid(row=8, column=2, columnspan=2, sticky='ew')
 if __name__ == '__main__':
     root.mainloop()
