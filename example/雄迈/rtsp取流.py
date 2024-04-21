@@ -32,6 +32,7 @@ def cv2_cap(ip=None, user='admin', password='shiji123'):
 
     # 0.sdp主码流 1次码流
     rtsp_url = f"rtsp://{ip}:554/user={user}&password={quote(password)}&channel=1&stream=0.sdp?real_stream"
+    print("rtsp_url", rtsp_url)
     cap = cv2.VideoCapture(rtsp_url)
     if not cap.isOpened():
         return
@@ -48,4 +49,4 @@ def cv2_cap(ip=None, user='admin', password='shiji123'):
 
 
 if __name__ == '__main__':
-    cv2_cap(ip="172.30.189.78")
+    cv2_cap(ip="172.30.188.55", password='dcxx188@55')
