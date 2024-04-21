@@ -6,7 +6,7 @@
 """
 import os
 from datetime import datetime
-
+from utils.tool import get_cam_list
 import requests
 
 
@@ -38,4 +38,6 @@ def capture(ip, folder=None):
 
 
 if __name__ == '__main__':
-    capture('172.30.189.82')
+    # capture('172.30.189.82')
+    for item in get_cam_list('../../txt/世纪东城-雄迈.csv'):
+        capture(item['ip'])
