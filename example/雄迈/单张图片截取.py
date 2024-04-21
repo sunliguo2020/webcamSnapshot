@@ -5,9 +5,14 @@
 @Created on: 2024-04-21 7:55
 """
 import os
+import sys
 from datetime import datetime
-from utils.tool import get_cam_list
+
 import requests
+
+from utils.tool import get_cam_list
+
+print(sys.path)
 
 
 def capture(ip, folder=None):
