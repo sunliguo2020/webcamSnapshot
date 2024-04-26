@@ -11,7 +11,7 @@ from urllib.parse import quote
 import cv2
 
 
-def cv2_cap(ip=None, user='admin', password='shiji123'):
+def xm_cv2_cap(ip=None, user='admin', password='shiji123'):
     """
 
     @param password:
@@ -37,11 +37,7 @@ def cv2_cap(ip=None, user='admin', password='shiji123'):
     if not cap.isOpened():
         return
     ret, frame = cap.read()
-    # while ret:
-    #     ret, frame = cap.read()
-    #     cv2.imshow("frame", frame)
-    #     if cv2.waitKey(1) & 0xFF == ord('q'):
-    #         break
+
     cv2.imencode('.jpg', frame)[1].tofile(file_full_path)
 
     cv2.destroyAllWindows()
@@ -49,4 +45,4 @@ def cv2_cap(ip=None, user='admin', password='shiji123'):
 
 
 if __name__ == '__main__':
-    cv2_cap(ip="172.30.188.55", password='dcxx188@55')
+    xm_cv2_cap(ip="172.30.188.55", password='dcxx188@55')
