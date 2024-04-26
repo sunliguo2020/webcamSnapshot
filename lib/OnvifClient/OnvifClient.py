@@ -104,6 +104,7 @@ class OnvifClient(object):
             file_path = self.getFilePath()
 
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
+        logger.debug(f'res:{res}')
 
         # 认证
         response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
@@ -112,6 +113,8 @@ class OnvifClient(object):
             f.write(response.content)
 
         logger.debug("保存截图成功：%s" % file_path)
+
+        return file_path
 
     def Snapshot_resize(self, file_dir='data', size=None):
         """

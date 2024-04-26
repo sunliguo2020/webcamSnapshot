@@ -64,7 +64,7 @@ def onvif_pool(csv_file, *arg, **kwargs):
     @return:
     """
     cam_list = get_cam_list(csv_file)
-    logger.debug(cam_list)
+    # logger.debug(cam_list)
     try:
         futures_list = []
         with ThreadPoolExecutor() as pool:
@@ -81,7 +81,7 @@ def onvif_pool(csv_file, *arg, **kwargs):
     pool.shutdown()
     success = 0
     for future in futures_list:
-        # logger.debug(future.result())
+        logger.debug(future.result())
         if future.result():
             success += 1
     logger.debug(f"统计：成功{success}失败{len(futures_list) - success}")
