@@ -4,7 +4,6 @@
 @contact: QQ376440229
 @Created on: 2024-04-21 7:55
 """
-import concurrent
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -14,7 +13,7 @@ import requests
 from utils.tool import get_cam_list
 
 
-def capture(ip=None, folder=None):
+def xm_capture(ip=None, folder=None):
     """
     雄迈摄像头抓拍
     @param folder: 截图保存目录
@@ -23,6 +22,7 @@ def capture(ip=None, folder=None):
     """
     if ip is None:
         return
+
     datetime_str = datetime.now().strftime("%Y%m%d%H%M%S")
     date_str = datetime.now().strftime("%Y-%m-%d")
     if folder is None:
@@ -47,11 +47,12 @@ def capture(ip=None, folder=None):
                 f.write(response.content)
             print(f'{ip} 抓取成功')
         else:
-            print(f'{ip} 抓取失败')
+            print(f'{ip} 抓取失败:{response.status_code}')
 
 
 if __name__ == '__main__':
-    # capture('172.30.189.82')
-    for item in get_cam_list('../../txt/世纪东城-雄迈.csv'):
+    csv_file = '../../txt/世纪东城-雄迈.csv'
+
+    for item in get_cam_list(csv_file):
         with ThreadPoolExecutor(max_workers=5) as executor:
-            executor.submit(capture, item['ip'])
+            executor.submit(xm_capture, item['ip'])

@@ -16,5 +16,5 @@ from capture_tk import root
 if __name__ == '__main__':
     # cam1 = Camera(camera_type="computer")
     # cam1.is_water_mark = True
-    # print(cam1.capture())
+    # print(cam1.xm_capture())
     root.mainloop()
