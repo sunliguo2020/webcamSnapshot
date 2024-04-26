@@ -93,8 +93,8 @@ def test_find():
 if __name__ == '__main__':
     logger.debug("ONVIFClientManager")
 
-    # test_find()
-    test_client(ip='172.30.189.68',
-                port=8899,
-                username='admin',
-                password='')
+    test_find()
+    # test_client(ip='172.30.189.68',
+    #             port=8899,
+    #             username='admin',
+    #             password='')
