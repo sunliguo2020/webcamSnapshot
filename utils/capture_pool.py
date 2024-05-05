@@ -57,14 +57,14 @@ def capture_pool(csv_file, *args, **kwargs):
 
 def onvif_pool(csv_file, *arg, **kwargs):
     """
-
-    @param csv_file:
+    使用线程池onvif截图
+    @param csv_file: ip,password的csv文件
     @param arg:
     @param kwargs:
     @return:
     """
     cam_list = get_cam_list(csv_file)
-    # logger.debug(cam_list)
+    logger.debug(f"csv文件：{cam_list}")
     try:
         futures_list = []
         with ThreadPoolExecutor() as pool:
@@ -90,4 +90,4 @@ def onvif_pool(csv_file, *arg, **kwargs):
 if __name__ == '__main__':
     logger.debug('main')
     # capture_pool(r"../txt/ruizhi.csv", folder_path="2023-11-13")
-    onvif_pool('../txt/世纪东城-雄迈.csv')
+    onvif_pool('../txt/test.csv')

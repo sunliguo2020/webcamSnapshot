@@ -13,7 +13,7 @@ import cv2
 
 def xm_cv2_cap(ip=None, user='admin', password='shiji123'):
     """
-
+    通过雄迈rtsp截图
     @param password:
     @param user:
     @param ip:
@@ -22,17 +22,19 @@ def xm_cv2_cap(ip=None, user='admin', password='shiji123'):
     datetime_str = datetime.now().strftime("%Y%m%d%H%M%S")
     date_str = datetime.now().strftime("%Y-%m-%d")
 
-    floder = f"{date_str}"
-    if not os.path.exists(floder):
-        os.makedirs(floder)
-
+    # 保存的目录
+    folder = f"{date_str}"
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    # 截图文件名
     file_name = f"{ip}_{user}_{password}_{datetime_str}.jpg"
 
-    file_full_path = os.path.join(floder, file_name)
+    file_full_path = os.path.join(folder, file_name)
 
-    # 0.sdp主码流 1次码流
+    # 雄迈rtsp 格式 0.sdp主码流 1次码流
+    # quote 处理密码中的特殊字符如@
     rtsp_url = f"rtsp://{ip}:554/user={user}&password={quote(password)}&channel=1&stream=0.sdp?real_stream"
-    print("rtsp_url", rtsp_url)
+    print("rtsp_url：", rtsp_url)
     cap = cv2.VideoCapture(rtsp_url)
     if not cap.isOpened():
         return

@@ -25,6 +25,7 @@ def xm_capture(ip=None, folder=None):
 
     datetime_str = datetime.now().strftime("%Y%m%d%H%M%S")
     date_str = datetime.now().strftime("%Y-%m-%d")
+
     if folder is None:
         folder = f'{date_str}'
     if not os.path.exists(folder):
@@ -34,6 +35,7 @@ def xm_capture(ip=None, folder=None):
 
     file_full_path = os.path.join(folder, file_name)
 
+    # 雄迈通过url截图，无需用户名和密码
     url = f'http://{ip}/webcapture.jpg?command=snap&channel=1'
     try:
         response = requests.get(url, timeout=1)
