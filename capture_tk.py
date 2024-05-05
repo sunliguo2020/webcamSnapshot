@@ -14,10 +14,8 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import ttk, N, S, E, W
+from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, Label
 from tkinter.scrolledtext import ScrolledText
-
 from PIL import ImageTk, Image
 
 from lib.Camera import Camera
@@ -82,10 +80,10 @@ class LogWidget:
     def display(self, record):
         msg = self.queue_handler.format(record)
         self.scrolled_text.configure(state='normal')
-        self.scrolled_text.insert(tk.END, msg + '\n', record.levelname)
+        self.scrolled_text.insert(END, msg + '\n', record.levelname)
         self.scrolled_text.configure(state='disabled')
         # Autoscroll to the bottom
-        self.scrolled_text.yview(tk.END)
+        self.scrolled_text.yview(END)
 
     def poll_log_queue(self):
         # Check every 100ms if there is a new message in the queue to display
@@ -129,10 +127,10 @@ def callbackFunc(event):
     # 如果用户选择电脑，则下面的csv为不可选择状态
     if numberChosen.get() == '电脑':
         csv_entry['state'] = 'disable'
-        csv_button['state'] = tk.DISABLED
+        csv_button['state'] = DISABLED
     else:
-        csv_entry['state'] = tk.NORMAL
-        csv_button['state'] = tk.NORMAL
+        csv_entry['state'] = NORMAL
+        csv_button['state'] = NORMAL
 
 
 def start_cap():
@@ -211,9 +209,9 @@ def display_image(image_path):
     photo = ImageTk.PhotoImage(img)
     # global image_label, root
     # 创建 Label 组件以显示图像
-    image_label = tk.Label(root, image=photo)
+    image_label = Label(root, image=photo)
     image_label.image = photo  # 保持对图片的引用，避免被垃圾回收
-    image_label.grid(row=10, column=1, sticky=tk.W, padx=20)
+    image_label.grid(row=10, column=1, sticky=W, padx=20)
 
 
 root = tk.Tk()

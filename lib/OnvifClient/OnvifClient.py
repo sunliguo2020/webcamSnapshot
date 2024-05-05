@@ -281,11 +281,9 @@ if __name__ == '__main__':
 
     # 截图
     root_dir = os.path.dirname(os.path.abspath(__file__))
-    client.Snapshot(file_dir=os.path.join(root_dir, "data"))
-    # client.Snapshot()
+    client.Snapshot()
 
     # print(client.getFilePath())
-
     # profiles = client.GetProfiles()
 
     print('测试获取osd')
