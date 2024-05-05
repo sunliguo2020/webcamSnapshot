@@ -8,6 +8,9 @@ from PIL import Image
 from onvif import ONVIFCamera, ONVIFError
 from requests.auth import HTTPDigestAuth
 
+from mylogger.setlogger import configure_logger
+
+configure_logger()
 logger = logging.getLogger("camera_logger")
 
 
@@ -16,6 +19,15 @@ def zeep_pythonvalue(self, xmlvalue):
 
 
 class OnvifClient(object):
+    """
+    ONVIF客户端类
+    使用python-onvif基本流程：
+    1.创建ONVIFCamera对象，我们可以理解为支持onvif协议的设备。
+    2.调用ONVIFCamera对象的create_xxx_service()方法来获取相应服务。
+    3.一般我们首先会调用create_media_service()方法来获取media_service()服务，
+    然后调用这个服务提供的GetProfiles()来获取配置信息，可以从配置信息里取到Token。
+    4.接下来就是通过给onvif接口传递参数，来调用相关接口了。
+    """
     def __init__(self,
                  ip: str,
                  port=80,
@@ -27,7 +39,9 @@ class OnvifClient(object):
         self.port = port
         self.username = username
         self.password = password
-        self.camera = None
+        #  创建 onvif-zeep soap客户端
+        # ONVIFCamera instance
+        self.camera = self.connect()
         self.media = None
         self.media_profile = None
         zeep.xsd.simple.AnySimpleType.pythonvalue = zeep_pythonvalue
@@ -36,7 +50,7 @@ class OnvifClient(object):
         # 默认保存的文件夹
         self.folder_path = folder_path if folder_path else \
             os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                         datetime.now().strftime('%Y-%m-%d'), 'captures')
+                         datetime.now().strftime('%Y-%m-%d'))
 
     def connect(self):
         """
@@ -45,15 +59,18 @@ class OnvifClient(object):
         """
         try:
             self.camera = ONVIFCamera(self.ip, self.port, self.username, self.password)
+            logger.debug(f"wsdl_dir：{self.camera.wsdl_dir}")
             # 创建媒体服务
             self.media = self.camera.create_media_service()
+            logger.debug(f"创建媒体服务：{self.media}")
 
             # profiles = self.GetProfiles()
             self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
-
+            logger.debug(f"获取配置信息：{self.media_profile}")
             logger.debug(f'连接相机成功，IP地址：{self.ip}')
 
-            return True
+            return self.camera
+
         except Exception as e:
             logger.debug(f"连接相机失败，IP地址：{self.ip},错误信息：{e}")
             return False
@@ -104,9 +121,11 @@ class OnvifClient(object):
             file_path = self.getFilePath()
 
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
-        logger.debug(f'res:{res}')
+        logger.debug(f"media_profile.token:{self.media_profile.token}")
+        #  打印出快照的URL
+        logger.debug(f"准备登录res.Uri:{res.Uri}")
 
-        # 认证
+        # 登录认证截图
         response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
 
         with open(file_path, 'wb') as f:  # 保存截图
@@ -161,6 +180,17 @@ class OnvifClient(object):
         return url
 
     def GetDeviceInformation(self):
+        """
+        获取设备信息
+        {
+            'Manufacturer': 'HIKVISION',
+            'Model': 'DS-2DE2204IW-D3',
+            'FirmwareVersion': 'V5.6.11 build 190426',
+            'SerialNumber': 'DS-2DE2204IW-D320170316CCCH731956144W',
+            'HardwareId': '88'
+        }
+        @return:
+        """
         # https://www.onvif.org/onvif/ver10/device/wsdl/devicemgmt.wsdl
 
         devicemgmt = self.camera.devicemgmt
@@ -196,6 +226,27 @@ class OnvifClient(object):
     def GetOSDs(self):
         return self.media.GetOSDs()
 
+    def GetOSD(self):
+        """
+        返回osd
+        @return:
+        """
+        osds = self.media.GetOSDs()
+        for item in osds:
+            # 检查当前字典中是否包含 'TextString' 这个键
+            if 'TextString' in item:
+                # logger.debug(f"{type(item['TextString'])}")
+                # 如果包含，则进一步获取 'TextString' 字典中的 'PlainText' 值
+                # 手动添加 Type为 Plain
+                text_string_value = item['TextString']
+                if text_string_value['Type'] == 'Plain':
+                    return text_string_value['PlainText']
+                elif text_string_value['Type'] == 'DateAndTime':
+                    logger.debug(f' 这是时间的osd TextString中Type值为：{text_string_value["Type"]}')
+
+            else:
+                print("'TextString' 键不存在于当前字典中")
+
     def SetVideoEncoderConfiguration(self, ratio=(1920, 1080), Encoding='H264', bitrate=2044, fps=30, gop=50):
 
         videoSourceConfig = self.GetVideoSourceConfigurations()
@@ -226,17 +277,30 @@ class OnvifClient(object):
 
 if __name__ == '__main__':
     # Onvif对象
-    client = OnvifClient(ip='192.168.1.64', username='test', password='shiji123')
+    client = OnvifClient(ip='192.168.1.50', username='admin', password='shiji123')
 
     # 截图
     root_dir = os.path.dirname(os.path.abspath(__file__))
     client.Snapshot(file_dir=os.path.join(root_dir, "data"))
-    client.Snapshot()
+    # client.Snapshot()
+
     # print(client.getFilePath())
-    # streamUri = client.GetStreamUri()
+
     # profiles = client.GetProfiles()
-    # osds = client.GetOSDs()
-    # info = client.GetDeviceInformation()
+
+    print('测试获取osd')
+    osds = client.GetOSDs()
+    # logger.debug(f'osd:{osds}')
+    osd = client.GetOSD()
+    if osd:
+        logger.debug(f"osd:{osd}")
+
+    info = client.GetDeviceInformation()
+    logger.debug(f"测试硬件信息:{info}")
+
+    streamUri = client.GetStreamUri()
+    logger.debug(f"rtsp 地址 GetStreamUri:{streamUri}")
+
     # videoSourceConfig = client.GetVideoSourceConfigurations()
     #
     # encoderConfig1 = client.GetVideoEncoderConfigurations()
