@@ -36,7 +36,11 @@ def dv_capture(ip=None, folder=None):
 
     file_full_path = os.path.join(folder, file_name)
 
+<<<<<<< HEAD
     # dv通过url截图，无需用户名和密码
+=======
+    # 雄迈通过url截图，无需用户名和密码
+>>>>>>> origin/feature-onvif
     url = f'http://{ip}/cgi-bin/snapshot.cgi?stream=0'
     try:
         response = requests.get(url, timeout=1)
@@ -58,5 +62,9 @@ if __name__ == '__main__':
 
     for item in get_cam_list(csv_file):
         with ThreadPoolExecutor(max_workers=5) as executor:
+<<<<<<< HEAD
             executor.submit(dv_capture, item['ip'])
+=======
+            executor.submit(xm_capture, item['ip'])
+>>>>>>> origin/feature-onvif
 
