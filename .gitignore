@@ -2,7 +2,7 @@
 *.png
 *.jpeg
 *.csv
-*.txt
+txt/*.txt
 *.log
 *.exe
 .idea/
