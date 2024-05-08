@@ -4,13 +4,31 @@ each camera on the same network."""
 __version__ = '1.0.11'
 
 import subprocess
+import sys
 from typing import List
 
 import WSDiscovery
 from onvif import ONVIFCamera
 
 
-def ws_discovery(scope=None) -> List:
+def get_local_ip_windows():
+    """Get local IP address on Windows."""
+    result = subprocess.run(['ipconfig', 'getifaddr', '以太网'],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True)
+    # 注意：'以太网' 可能需要根据您的网络接口名称进行修改
+    if result.returncode != 0:
+        # 尝试其他方法或返回默认IP（例如 '127.0.0.1'）
+        return '127.0.0.1'
+    match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', result.stdout)
+    if match:
+        return match.group()
+    else:
+        return None
+
+
+def ws_discovery(scope=None) -> List[str]:
     """Discover cameras on network using onvif discovery.
 
     Returns:
@@ -18,8 +36,16 @@ def ws_discovery(scope=None) -> List:
     """
     lst = list()
     if (scope == None):
-        cmd = 'hostname -I'
-        scope = subprocess.check_output(cmd, shell=True).decode('utf-8')
+        # 检查操作系统
+        if sys.platform.startswith('win'):
+            scope = get_local_ip_windows()
+        else:
+
+            cmd = 'hostname -I'
+            scope = subprocess.check_output(cmd, shell=True).decode('utf-8').strip()
+
+    scopes = scope.split() if isinstance(scope, str) else [scope]
+
     wsd = WSDiscovery.WSDiscovery()
     wsd.start()
     ret = wsd.searchServices()
