@@ -28,6 +28,7 @@ class OnvifClient(object):
     然后调用这个服务提供的GetProfiles()来获取配置信息，可以从配置信息里取到Token。
     4.接下来就是通过给onvif接口传递参数，来调用相关接口了。
     """
+
     def __init__(self,
                  ip: str,
                  port=80,
@@ -35,6 +36,7 @@ class OnvifClient(object):
                  password: str = 'admin',
                  folder_path=None
                  ):
+        self.profiles = None
         self.ip = ip
         self.port = port
         self.username = username
@@ -64,8 +66,9 @@ class OnvifClient(object):
             self.media = self.camera.create_media_service()
             logger.debug(f"创建媒体服务：{self.media}")
 
-            # profiles = self.GetProfiles()
-            self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
+            self.profiles = self.GetProfiles()
+            self.media_profile = self.GetProfiles()[0]  # 获取配置信息
+            logger.debug(f"slef.GetProfiles:{self.GetProfiles()}")
             logger.debug(f"获取配置信息：{self.media_profile}")
             logger.debug(f'连接相机成功，IP地址：{self.ip}')
 
@@ -77,7 +80,7 @@ class OnvifClient(object):
 
     def getFileName(self):
         """
-        获取文件名
+        获取截图文件名
         @return:
         """
         datetime_str = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -215,6 +218,11 @@ class OnvifClient(object):
         return info
 
     def GetVideoSourceConfigurations(self):
+        """
+
+        Returns:
+
+        """
         return self.media.GetVideoSourceConfigurations()
 
     def GetVideoEncoderConfigurations(self):
@@ -224,6 +232,11 @@ class OnvifClient(object):
         return self.media.GetProfiles()
 
     def GetOSDs(self):
+        """
+
+        Returns:
+
+        """
         return self.media.GetOSDs()
 
     def GetOSD(self):
