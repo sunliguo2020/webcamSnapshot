@@ -40,11 +40,12 @@ def onvif_find(t1: tk.Text):
 
 
 window = tk.Tk()
-window.geometry('400x400')
+window.geometry('600x400')
+window.resizable(False, False)
 
 window.title('ONVIF设备搜索')
 
-t1 = scrolledtext.ScrolledText(window, height=20, width=50)
+t1 = scrolledtext.ScrolledText(window, height=20, width=80)
 t1.pack(pady=20)
 
 b1 = tk.Button(window, text='搜索', command=lambda: onvif_find(t1))  # 将文本框作为参数传递给函数
