@@ -65,8 +65,8 @@ def ws_discovery(scope=None) -> List[str]:
             # result 是一个整数，它表示 get_ip 字符串中第一次出现 ip_scope.split('.')[0] + '.' + ip_scope.split('.')[1] 这个子字符串的起始位置（索引）
             result = get_ip.find(ip_scope.split('.')[0] + '.' + ip_scope.split('.')[1])
             logger.debug(f"result：{result}")
-            # if result > 0 and get_types.find('onvif') > 0:
-            if result > 0:
+            # 只显示onvif设备
+            if result > 0 and get_types.find('onvif') > 0:
                 string_result = get_ip[result:result + 13]
                 string_result = string_result.split('/')[0]
                 lst.append(string_result)
