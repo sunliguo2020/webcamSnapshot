@@ -252,7 +252,7 @@ def cams_channel_capture(ip, password, start_channel_no=1, end_channel_no=64, **
         logger.debug(f"修改后的kwarg：{kwargs}")
 
     for channel in range(start_channel_no, end_channel_no + 1):
-        logger.debug(f'开始通道:{channel}')
+        logger.debug(f'开始通道:{channel}截图')
         try:
             cv2_video_capture(cam_ip=ip, cam_pwd=password, channel_no=channel, **kwargs)
         except Exception as e:

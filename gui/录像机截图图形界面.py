@@ -12,41 +12,8 @@ from tkinter import ttk, filedialog, scrolledtext
 
 from cv2Snapshot import cams_capture
 from cv2Snapshot import cams_channel_capture
+from utils.guis import WidgetLogger
 from utils.tool import is_ipv4
-
-
-class WidgetLogger(logging.Handler):
-    # The init function needs the widget which will hold the log messages passed to it as
-    # well as other basic information (log level, format, etc.)
-
-    def __init__(self, widget, logLevel, format):
-        logging.Handler.__init__(self)
-
-        # Basic logging configuration
-        self.setLevel(logLevel)
-        self.setFormatter(logging.Formatter(format))
-        self.widget = widget
-
-        # The ScrolledText box must be disabled so users can't enter their own text
-        self.widget.config(state='disabled')
-
-    # This function is called when a log message is to be handled
-    def emit(self, record):
-        # Enable the widget to allow new text to be inserted
-        self.widget.config(state='normal')
-
-        # Append log message to the widget
-        # self.widget.insert('insert', str(self.format(record) + '\n'))
-
-        msg = self.format(record)
-        self.widget.insert("end", msg + "\n")
-
-        # Scroll down to the bottom of the ScrolledText box to ensure the latest log message
-        # is visible
-        self.widget.see("end")
-
-        # Re-disable the widget to prevent users from entering text
-        self.widget.config(state='disabled')
 
 
 class Application(Frame):
@@ -62,6 +29,10 @@ class Application(Frame):
         self.create_widget()
 
     def create_widget(self):
+        """
+        创建界面
+        @return:
+        """
 
         self.ip_label = Label(self, text='IP地址:', font='微软雅黑 12')
         self.ip_label.grid(column=0, row=0, sticky=W, padx=20)
@@ -72,7 +43,7 @@ class Application(Frame):
         self.password_label = Label(self, text='密码:', font='微软雅黑 12')
         self.password_label.grid(column=0, row=1, sticky=W, padx=20)
 
-        self.password_entry = Entry(self, textvariable=self.password)
+        self.password_entry = Entry(self,show='*', textvariable=self.password)
         self.password_entry.grid(column=1, row=1, sticky=W)
 
         # 录像机截至通道号
