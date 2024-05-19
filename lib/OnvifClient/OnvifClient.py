@@ -66,7 +66,9 @@ class OnvifClient(object):
         #  创建 onvif-zeep soap客户端
         # ONVIFCamera instance
         result = checkPwdAndGetCam(self.ip, self.port, self.username, self.password)
+        # 获取媒体配置信息 例如：主码流 辅码流  第三码流
         self.profiles = result['profiles']
+        logger.debug(f"self.profiles:{self.profiles}")
         self.camera = result['cam']
         self.media = result['media']
         self.media_profile = self.profiles[0]
@@ -148,8 +150,20 @@ class OnvifClient(object):
             file_path = os.path.join(file_dir, self.getFileName())
         else:
             file_path = self.getFilePath()
-
+        """
+        res:
+        {
+            'Uri': 'http://192.168.1.50/onvif-http/snapshot?Profile_1',
+            'InvalidAfterConnect': False,
+            'InvalidAfterReboot': False,
+            'Timeout': datetime.timedelta(0),
+            '_value_1': None,
+            '_attr_1': None
+        }
+        """
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
+
+        logger.debug(f"抓图url res:{res}")
 
         logger.debug(f"media_profile.token:{self.media_profile.token}")
         logger.debug(f"准备登录res.Uri:{res.Uri}")
