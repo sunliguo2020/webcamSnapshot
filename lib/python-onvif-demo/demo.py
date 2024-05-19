@@ -16,7 +16,7 @@ client = OnvifClient('192.168.1.50', 80, 'admin', 'shiji123', needSnapImg=False)
 pprint.pprint(client.get_rtsp())
 
 # 获取设备信息
-# print(json.dumps(client.get_deviceInfo()))
+print(client.get_deviceInfo())
 
 # 设置时间
 # client.set_cam_time()
@@ -25,6 +25,6 @@ pprint.pprint(client.get_rtsp())
 # 云台上移
 # ptzChangeByClient(client, 'Up', 1)
 # 移动一秒
-time.sleep(1)
+# time.sleep(1)
 # 然后停止
 # ptzChangeByClient(client, 'Up', 0)
