@@ -18,6 +18,29 @@ def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
 
 
+def checkPwdAndGetCam(ip, port, usr, pwd):
+    try:
+        cam = ONVIFCamera(ip, port, usr, pwd)
+        media = cam.create_media_service()
+        profiles = media.GetProfiles()
+    except Exception as e:
+        if 'timed out' in str(e):
+            raise Exception("连接超时，请检查地址以及端口是否正确")
+        elif 'HTTPConnectionPool' in str(e):
+            raise Exception(
+                "连接失败，请检查地址以及端口是否正确。"
+                "<br/><br/><front style='color: #aaa;'>异常信息：%s</front>" % str(e))
+        else:
+            raise Exception(
+                "请检查账号密码是否正确。"
+                "<br/><br/><front style='color: #aaa;'>异常信息：%s</front>" % str(e))
+    return {
+        'cam': cam,
+        'media': media,
+        'profiles': profiles
+    }
+
+
 class OnvifClient(object):
     """
     ONVIF客户端类
@@ -28,6 +51,7 @@ class OnvifClient(object):
     然后调用这个服务提供的GetProfiles()来获取配置信息，可以从配置信息里取到Token。
     4.接下来就是通过给onvif接口传递参数，来调用相关接口了。
     """
+
     def __init__(self,
                  ip: str,
                  port=80,
@@ -41,9 +65,14 @@ class OnvifClient(object):
         self.password = password
         #  创建 onvif-zeep soap客户端
         # ONVIFCamera instance
-        self.camera = self.connect()
-        self.media = None
-        self.media_profile = None
+        result = checkPwdAndGetCam(self.ip, self.port, self.username, self.password)
+        # 获取媒体配置信息 例如：主码流 辅码流  第三码流
+        self.profiles = result['profiles']
+        logger.debug(f"self.profiles:{self.profiles}")
+        self.camera = result['cam']
+        self.media = result['media']
+        self.media_profile = self.profiles[0]
+
         zeep.xsd.simple.AnySimpleType.pythonvalue = zeep_pythonvalue
         # zeep.xsd.simple.AnySimpleType.pythonvalue = lambda x:x
 
@@ -64,8 +93,10 @@ class OnvifClient(object):
             self.media = self.camera.create_media_service()
             logger.debug(f"创建媒体服务：{self.media}")
 
-            # profiles = self.GetProfiles()
-            self.media_profile = self.media.GetProfiles()[0]  # 获取配置信息
+            self.profiles = self.GetProfiles()
+            self.media_profile = self.GetProfiles()[0]  # 获取配置信息
+
+            logger.debug(f"slef.GetProfiles:{self.GetProfiles()}")
             logger.debug(f"获取配置信息：{self.media_profile}")
             logger.debug(f'连接相机成功，IP地址：{self.ip}')
 
@@ -77,7 +108,7 @@ class OnvifClient(object):
 
     def getFileName(self):
         """
-        获取文件名
+        获取截图文件名
         @return:
         """
         datetime_str = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -108,7 +139,7 @@ class OnvifClient(object):
         @type file_dir: string
         """
         # 在尝试使用media属性之前，确保已经连接到相机
-        if self.media is None and not self.connect():
+        if not self.media:
             logger.error('无法连接到相机，无法拍摄快照')
             return False
         # 如果没有传入保存的目录，则使用默认的保存目录
@@ -119,10 +150,22 @@ class OnvifClient(object):
             file_path = os.path.join(file_dir, self.getFileName())
         else:
             file_path = self.getFilePath()
-
+        """
+        res:
+        {
+            'Uri': 'http://192.168.1.50/onvif-http/snapshot?Profile_1',
+            'InvalidAfterConnect': False,
+            'InvalidAfterReboot': False,
+            'Timeout': datetime.timedelta(0),
+            '_value_1': None,
+            '_attr_1': None
+        }
+        """
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
+
+        logger.debug(f"抓图url res:{res}")
+
         logger.debug(f"media_profile.token:{self.media_profile.token}")
-        #  打印出快照的URL
         logger.debug(f"准备登录res.Uri:{res.Uri}")
 
         # 登录认证截图
@@ -215,6 +258,11 @@ class OnvifClient(object):
         return info
 
     def GetVideoSourceConfigurations(self):
+        """
+
+        Returns:
+
+        """
         return self.media.GetVideoSourceConfigurations()
 
     def GetVideoEncoderConfigurations(self):
@@ -224,6 +272,11 @@ class OnvifClient(object):
         return self.media.GetProfiles()
 
     def GetOSDs(self):
+        """
+
+        Returns:
+
+        """
         return self.media.GetOSDs()
 
     def GetOSD(self):
@@ -280,21 +333,21 @@ if __name__ == '__main__':
     client = OnvifClient(ip='192.168.1.50', username='admin', password='shiji123')
 
     # 截图
-    root_dir = os.path.dirname(os.path.abspath(__file__))
+    # root_dir = os.path.dirname(os.path.abspath(__file__))
     client.Snapshot()
 
     # print(client.getFilePath())
     # profiles = client.GetProfiles()
 
-    print('测试获取osd')
-    osds = client.GetOSDs()
-    # logger.debug(f'osd:{osds}')
-    osd = client.GetOSD()
-    if osd:
-        logger.debug(f"osd:{osd}")
+    # print('测试获取osd')
+    # osds = client.GetOSDs()
+    # # logger.debug(f'osd:{osds}')
+    # osd = client.GetOSD()
+    # if osd:
+    #     logger.debug(f"osd:{osd}")
 
-    info = client.GetDeviceInformation()
-    logger.debug(f"测试硬件信息:{info}")
+    # info = client.GetDeviceInformation()
+    # logger.debug(f"测试硬件信息:{info}")
 
     streamUri = client.GetStreamUri()
     logger.debug(f"rtsp 地址 GetStreamUri:{streamUri}")
