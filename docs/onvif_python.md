@@ -27,13 +27,44 @@ pip  install onvif_zeep
 
 创建媒体对象
 
-media = camra.create_media_service()
+media = camera.create_media_service()
 
 
 
 profiles = media.GetPRofiles()
 
+### IPC图像抓拍的两种方式
 
+- 对RTSP视频流进行视频截图
+- 使用HTTP的GET方式获取图片
+
+获取抓拍的URL，使用media模块的GetSnapshotUri接口可获取图像抓拍的URL。
+
+编码流程
+
+1. 通过「设备发现」，得到 「设备服务地址」。
+2. 使用「设备服务地址」调用GetCapabilities接口，得到「媒体服务地址」。
+3. 使用「媒体服务地址」调用GetProfiles接口，得到主次码流的「媒体配置信息」，其中包含ProfileToken。
+4. 使用ProfileToken 调用GetSnapshotUri接口，得到主次码图像抓拍的URI地址。
+5. 根据URI地址，使用HTTP的GET方式获取图片。****
+
+代码示例：
+
+```python
+cam = ONVIFCamera(ip, port, usr, pwd)
+media = cam.create_media_service()
+# 获取媒体配置信息
+profiles = media.GetProfiles()
+
+# 主码流
+self.media_profile = self.profiles[0]
+
+res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
+# 登录认证截图
+response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
+with open(file_path, 'wb') as f:  # 保存截图
+     f.write(response.content)
+```
 
 
 
