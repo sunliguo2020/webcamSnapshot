@@ -7,6 +7,8 @@
 """
 import csv
 import logging
+
+
 import os
 import time
 
@@ -18,11 +20,12 @@ except ImportError as e:
     os.system('pip install opencv-python')
     import cv2
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger('NVR')
 
-handler_control = logging.StreamHandler()
-logger.addHandler(handler_control)
+# logger.setLevel(logging.DEBUG)
+#
+# handler_control = logging.StreamHandler()
+# logger.addHandler(handler_control)
 
 
 def water_mark(frame, water_text):
@@ -82,16 +85,6 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     :param cam_client: 摄像头类型，这里是hik和dahua,computer
     :return: < 0 : 报错退出
     """
-
-    # 如果save_dir 为空的情况
-    if save_dir == '':
-        save_dir = '.'
-    # 判断截图根目录是否存在
-    if not os.path.isdir(save_dir):
-        os.makedirs(save_dir)
-
-    logger.debug(f"最后保存截图的根目录save_dir:{save_dir}")
-
     # 判断rtsp协议的554端口有没有打开。
     port_open_result = portisopen(cam_ip, 554)
     logger.debug(f"判断{cam_ip}端口是否打开:{port_open_result}")
@@ -99,6 +92,12 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     if not port_open_result:
         logger.debug(f"{cam_ip} 554 端口没有打开或者网络不通")
         return -1
+
+    # 判断截图根目录是否存在
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+
+    logger.debug(f"最后保存截图的根目录save_dir:{save_dir}")
 
     # 保存截图的目录  运行程序的日期为目录名
     str_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
@@ -111,9 +110,9 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     snapshot_file_name = "_".join([cam_ip, cam_pwd, cam_client, "rtsp", "channel" + str(channel_no), str_time]) + ".jpg"
     snapshot_full_path = os.path.join(pic_dir, snapshot_file_name)
 
-    # logger.debug(snapshot_full_path)
+    logger.debug(snapshot_full_path)
 
-    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
+    # os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000"
 
     # 判断是海康还是大华的摄像头
     if cam_client == 'dahua':
@@ -124,8 +123,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
             # logger.debug(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/h264/ch{channel_no}/main/av_stream")
             logger.debug(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/Streaming/Channels/{channel_no}01")
             # cam = cv2.VideoCapture(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/h264/ch{channel_no}/main/av_stream",
-            cam = cv2.VideoCapture(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/Streaming/Channels/{channel_no}01",
-                                   cv2.CAP_FFMPEG)
+            cam = cv2.VideoCapture(f"rtsp://admin:{cam_pwd}@{cam_ip}:554/Streaming/Channels/{channel_no}01")
         except Exception as e:
             logger.debug(f"cv2.VideoCapture failed{e}")
     else:
@@ -136,7 +134,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
 
     # 判断视频对象是否成功读取成功
     if not cam.isOpened():
-        raise ValueError("Could not open camera.")
+        raise ValueError("打开摄像头失败.")
         return -3
 
     # 按帧读取视频，返回值ret是布尔型，正确读取则返回True，读取失败或读取视频结尾则会返回False。
@@ -235,10 +233,10 @@ def cams_capture(csv_file, *args, **kwargs):
 def cams_channel_capture(ip, password, start_channel_no=1, end_channel_no=64, **kwargs):
     """
     按照录像机通道截图
-    :param end_channel_no:
-    :param start_channel_no:
-    :param ip: 录像机ip地址
-    :param password: 录像机密码
+    :param end_channel_no:      结束通道号
+    :param start_channel_no:    开始通道号
+    :param ip:                  录像机ip地址
+    :param password:            录像机密码
     :return:
     """
     # 分析参数
@@ -252,7 +250,7 @@ def cams_channel_capture(ip, password, start_channel_no=1, end_channel_no=64, **
         logger.debug(f"修改后的kwarg：{kwargs}")
 
     for channel in range(start_channel_no, end_channel_no + 1):
-        logger.debug(f'开始通道:{channel}截图')
+        logger.debug(f'{ip}开始通道:{channel}截图')
         try:
             cv2_video_capture(cam_ip=ip, cam_pwd=password, channel_no=channel, **kwargs)
         except Exception as e:
@@ -260,5 +258,7 @@ def cams_channel_capture(ip, password, start_channel_no=1, end_channel_no=64, **
 
 
 if __name__ == '__main__':
-    cams_capture('./txt/ruizhi.csv', 'hik')
+    # cams_capture('./txt/ruizhi.csv', 'hik')
     # cams_channel_capture('192.168.1.200', 'admin123', end_channel_no=10)
+    for i in range(100):
+        cv2_video_capture('192.168.1.200', 'admin123', channel_no=5)
