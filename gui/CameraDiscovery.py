@@ -3,12 +3,18 @@ each camera on the same network."""
 
 __version__ = '1.0.11'
 
+import logging
+import re
 import subprocess
 import sys
 from typing import List
 
-import WSDiscovery
 from onvif import ONVIFCamera
+# import WSDiscovery
+from wsdiscovery import WSDiscovery
+
+logger = logging.getLogger('onvif')
+logger.setLevel(logging.DEBUG)
 
 
 def get_local_ip_windows():
@@ -35,25 +41,31 @@ def ws_discovery(scope=None) -> List[str]:
         List: List of ips found in network.
     """
     lst = list()
-    if (scope == None):
+    # 搜索哪个网段的设备
+    if scope is None:
         # 检查操作系统
         if sys.platform.startswith('win'):
             scope = get_local_ip_windows()
         else:
-
             cmd = 'hostname -I'
             scope = subprocess.check_output(cmd, shell=True).decode('utf-8').strip()
-
+    logger.debug(f"{scope}")
     scopes = scope.split() if isinstance(scope, str) else [scope]
 
-    wsd = WSDiscovery.WSDiscovery()
+    wsd = WSDiscovery()
     wsd.start()
     ret = wsd.searchServices()
     for service in ret:
+        logger.debug(f"开始遍历ret：{service}")
         get_ip = str(service.getXAddrs())
+        logger.debug(f"get_ip：{get_ip}")
         get_types = str(service.getTypes())
+        logger.debug(f"get_types：{get_types}")
         for ip_scope in scope.split():
+            # result 是一个整数，它表示 get_ip 字符串中第一次出现 ip_scope.split('.')[0] + '.' + ip_scope.split('.')[1] 这个子字符串的起始位置（索引）
             result = get_ip.find(ip_scope.split('.')[0] + '.' + ip_scope.split('.')[1])
+            logger.debug(f"result：{result}")
+            # 只显示onvif设备
             if result > 0 and get_types.find('onvif') > 0:
                 string_result = get_ip[result:result + 13]
                 string_result = string_result.split('/')[0]
@@ -192,3 +204,8 @@ class CameraONVIF:
         """
         resp = self.mycam.devicemgmt.GetCapabilities()
         return bool(resp.PTZ)
+
+
+if __name__ == '__main__':
+    print(get_local_ip_windows())
+    print(ws_discovery('192.168.1.21'))
