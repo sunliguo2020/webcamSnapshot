@@ -32,3 +32,10 @@ onvif协议接口由多个模块组成，每个模块分别对应不同的WSDL�
 - **能力获取：GetCapabilities**：获取设备能力文件，从中识别出媒体信息地址URI： http://192.168.15.240/onvif/Media
 - **媒体信息获取：GetProfiles**： 获取媒体信息文件，识别主通道、子通道的视频编码分辨率
 - **RTSP地址获取：GetStreamUri**：获取指定通道的流媒体地址 rtsp://192.168.15.240:554/Streaming/Channels/2?transportmode=unicast
+
+例1：大华IPC-HFW4200R-Z
+
+```
+'rtsp://192.168.1.124:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif', 'rtsp://192.168.1.124:554/cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif'
+```
+
