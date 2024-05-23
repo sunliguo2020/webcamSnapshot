@@ -7,7 +7,8 @@ import zeep
 from PIL import Image
 from onvif import ONVIFCamera, ONVIFError
 from requests.auth import HTTPDigestAuth
-
+from zeep.helpers import serialize_object
+from itertools import groupby
 from mylogger.setlogger import configure_logger
 
 configure_logger()
@@ -22,6 +23,7 @@ def checkPwdAndGetCam(ip, port, usr, pwd):
     try:
         cam = ONVIFCamera(ip, port, usr, pwd)
         media = cam.create_media_service()
+        # 获取媒体信息文件，识别主通道、子通道的视频编码分辨率
         profiles = media.GetProfiles()
     except Exception as e:
         if 'timed out' in str(e):
@@ -208,19 +210,53 @@ class OnvifClient(object):
         获取RTSP视频流地址
         @return:
         """
-        obj = self.media.create_type('GetStreamUri')
-        obj.StreamSetup = {'Stream': 'rtp-unicast', 'Transport': {'Protocol': 'RTSP'}}
-        obj.ProfileToken = self.media_profile.token
-        res = self.media.GetStreamUri(obj)
-        url = res['Uri']
+        result = []
 
+        for profile in self.profiles:
+            obj = self.media.create_type('GetStreamUri')
+            obj.StreamSetup = {'Stream': 'RTP-Unicast', 'Transport': {'Protocol': 'RTSP'}}
+            obj.ProfileToken = profile.token
+            res = self.media.GetStreamUri(obj)
+            url = res['Uri']
+            if 'rtsp://' in url and '@' not in url:
+                url = url.replace('rtsp://', 'rtsp://%s:%s@' % (self.username, self.password))
+            result.append(url)
+        return result
         # url示例 rtsp://192.168.1.176:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif
 
         if url.startswith("rtsp://"):
             url_suffix = url[7:]
             url = "rtsp://%s:%s@%s" % (self.username, self.password, url_suffix)
 
-        return url
+
+    def get_rtsp(self):
+        """
+        获取RTSP地址等
+        参考文档：https://www.onvif.org/onvif/ver10/media/wsdl/media.wsdl#op.GetStreamUri
+        """
+        result = []
+        StreamSetup = {'Stream': 'RTP-Unicast', 'Transport': {'Protocol': 'RTSP'}}
+        for profile in self.profiles:
+            obj = self.media.create_type('GetStreamUri')
+            obj.StreamSetup = StreamSetup
+            obj.ProfileToken = profile.token
+            res_uri = self.media.GetStreamUri(obj)['Uri']
+            if 'rtsp://' in res_uri and '@' not in res_uri:
+                res_uri = res_uri.replace('rtsp://', 'rtsp://%s:%s@' % (self.username, self.password))
+            result.append({
+                'source': profile.VideoSourceConfiguration.SourceToken,
+                'node': profile.PTZConfiguration.NodeToken if profile.PTZConfiguration is not None else None,
+                'uri': res_uri,
+                'token': profile.token,
+                'videoEncoding': profile.VideoEncoderConfiguration.Encoding,
+                'Resolution': serialize_object(profile.VideoEncoderConfiguration.Resolution)
+            })
+        sortedResult = sorted(result, key=lambda d: d['source'])
+        logger.debug(f"sortedResult: {sortedResult}")
+        groupData = groupby(sortedResult, key=lambda x: x['source'])
+        logger.debug(f"typeof(groupData):{type(groupData)},groupData:{groupData}")
+        return [{'source': key, 'data': [item for item in group]} for key, group in groupData]
+
 
     def GetDeviceInformation(self):
         """
@@ -330,7 +366,7 @@ class OnvifClient(object):
 
 if __name__ == '__main__':
     # Onvif对象
-    client = OnvifClient(ip='192.168.1.50', username='admin', password='shiji123')
+    client = OnvifClient(ip='192.168.1.123', username='admin', password='shiji123')
 
     # 截图
     # root_dir = os.path.dirname(os.path.abspath(__file__))
