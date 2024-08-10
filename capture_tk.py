@@ -14,8 +14,9 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, Label
+from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, Label, messagebox
 from tkinter.scrolledtext import ScrolledText
+
 from PIL import ImageTk, Image
 
 from lib.Camera import Camera
@@ -97,6 +98,10 @@ class LogWidget:
         self.frame.after(100, self.poll_log_queue)
 
 
+# 保存目录
+save_dir = None
+
+
 def select_file():
     # 单个文件选择
     selected_file_path = filedialog.askopenfilename()  # 使用askopenfilename函数选择单个文件
@@ -110,7 +115,10 @@ def select_files():
 
 
 def select_folder():
-    # 文件夹选择
+    """
+    保存图片的文件夹选择
+    @return:
+    """
     selected_folder = filedialog.askdirectory()  # 使用askdirectory函数选择文件夹
     select_dir.set(selected_folder)
 
@@ -135,17 +143,46 @@ def callbackFunc(event):
 
 def start_cap():
     """
-    开始采集的按钮绑定的程序
+    开始采集按钮绑定的函数
     :return:
     """
+    global save_dir
     # 清空日志区
     console.scrolled_text.configure(state='normal')
     console.scrolled_text.delete("1.0", 'end')
     console.scrolled_text.configure(state='disabled')
 
-    # 摄像头类型
+    # 获取摄像头类型
     client_type = numberChosen.get()
-    logger.debug(f"类型为：{client_type}")
+    logger.debug(f"采集的摄像头类型为：{client_type}")
+
+    # 网络摄像头截图csv 文件的路径
+    csv_file = csv_entry.get()
+
+    # 判断csv_file的合法性，如果是电脑摄像头的话，不用考虑csv
+    if client_type != '电脑' and (not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv"):
+        logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
+        raise ValueError('请重新选择包含ip,password的文件!')
+
+    # 截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
+    save_dir = os.path.join((dir_entry.get() or
+                             os.path.splitext(os.path.basename(csv_file))[0]),
+                            time.strftime('%Y-%m-%d', time.localtime()))
+
+    # 最后的save_dir
+    select_dir.set(save_dir)
+    # messagebox.showinfo("设置成功", f"保存目录已设置为：{save_dir}")
+
+    #  判断路径是否存在，不存在则创建
+    if os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
+
+    # 生成打开该路径的按钮
+    # open_button.configure(command=lambda: os.startfile(save_dir))
+    open_button.configure(command=lambda: open_folder(save_dir))
+
+    logger.info(f'摄像头类型：{client_type}')
+    logger.info(f'截图保存路径：{save_dir}')
 
     # 如果是电脑摄像头，直接截图
     if client_type == '电脑':
@@ -160,26 +197,6 @@ def start_cap():
 
     # 其余为海康 大华的rtsp协议
     # onvif也是先获取rtsp地址，再截图
-
-    # 网络摄像头截图csv 文件的路径
-    csv_file = csv_entry.get()
-
-    # 判断csv_file的合法性
-    if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv":
-        logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
-        raise ValueError('请重新选择包含ip,password的文件!')
-
-    # 截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
-    save_dir = os.path.join((dir_entry.get() or
-                             os.path.splitext(os.path.basename(csv_file))[0]),
-                            time.strftime('%Y-%m-%d', time.localtime()))
-    if os.path.exists(save_dir):
-        os.makedirs(save_dir, exist_ok=True)
-    # 生成打开该路径的按钮
-    open_button.configure(command=lambda: os.startfile(save_dir))
-
-    logger.info(f'摄像头类型：{client_type}')
-    logger.info(f'截图保存路径：{save_dir}')
 
     if client_type == '海康':
         capture_pool(csv_file, folder_path=save_dir)
@@ -212,6 +229,16 @@ def display_image(image_path):
     image_label = Label(root, image=photo)
     image_label.image = photo  # 保持对图片的引用，避免被垃圾回收
     image_label.grid(row=10, column=1, sticky=W, padx=20)
+
+
+def open_folder(save_dir):
+    """
+    打开截图的文件夹
+    Returns:
+
+    """
+    logger.debug(f'要打开截图保存路径：{save_dir}')
+    os.startfile(save_dir)
 
 
 root = tk.Tk()
@@ -253,10 +280,11 @@ csv_entry.grid(column=1, row=1, sticky=tk.W)
 csv_button = tk.Button(root, text="浏览", command=select_file)
 csv_button.grid(row=1, column=3)
 
-# 截图保存目录
+# 截图保存目录 标签
 cap_dir_label = tk.Label(root, text='截图保存位置\n(留空为当前目录):', font='微软雅黑 12')
 cap_dir_label.grid(row=2, column=0, sticky=tk.W, padx=20)
 
+# 截图保存目录
 dir_entry = tk.Entry(root, textvariable=select_dir)
 dir_entry.grid(column=1, row=2, sticky=tk.W)
 
@@ -273,7 +301,9 @@ capture_button = tk.Button(root,
 capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
 # 打开截图目录
-open_button = tk.Button(root, text='打开截图保存路径')
+open_button = tk.Button(root, text='打开截图路径')
+
 open_button.grid(row=8, column=2, columnspan=2, sticky='ew')
+
 if __name__ == '__main__':
     root.mainloop()
