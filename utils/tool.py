@@ -115,6 +115,7 @@ def get_cam_list(csv_file):
     @return: 包含ip，password等字典
     """
     # 将csv文件转为 摄像头对象的列表
+    # TODO csv文件没有第一行表头的情况
     with open(csv_file, 'r', encoding='utf-8') as fp:
         for item in csv.DictReader(fp):
             yield item

@@ -16,7 +16,7 @@ logger = logging.getLogger('camera_logger')
 
 def capture_pool(csv_file, *args, **kwargs):
     """
-    使用线程池截图
+    使用线程池截图,摄像头类型 和 保存路径
     @param csv_file:保存ip,port,user,password的csv文件
     @param args:
     @param kwargs:
@@ -24,29 +24,33 @@ def capture_pool(csv_file, *args, **kwargs):
     """
     # 1、包含ip,password等的字典的生成式
     cam_list = get_cam_list(csv_file)
-    logger.debug(cam_list)
 
     # 2、 创建线程池
     try:
         with ThreadPoolExecutor() as pool:
             # results 是返回的结果列表
-            results = pool.map(lambda inkwargs: Camera(**inkwargs, **kwargs).capture(), cam_list)
+            results = pool.map(lambda caminfo: Camera(**caminfo, **kwargs).capture(), cam_list)
     except Exception as e:
         logger.error(f"在线程池执行中发生错误：{e}")
 
     # 每个ip和结果对应
     # (('172.24.99.101', 'admin'), (-1, None))
-    last_results = list(zip(cam_list, results))
+    list_results = list(results)
+    logger.debug(f"list_results:{list_results}")
+    # last_results = list(zip(cam_list, list_results))
+    last_results = list_results
     logger.debug(f"last_results:{last_results}")
 
-    for result in last_results:
-        logger.debug(f"截图结果:{result}")
+    # for result in last_results:
+    #     logger.debug(f"截图结果:{result}")
+    # 截图结果:(1, '2024-08-11\\192.168.1.50_shiji123_hik_20240811124515.jpg')
+
     # 3、统计结果
     success = 0
     failed = 0
     for item in last_results:
-        # logger.debug(item)
-        if item[1][0] == 1:
+        logger.debug(f"item:{item}")
+        if item[0] == 1:
             logger.debug(f"截图成功:{item}")
             success += 1
         else:

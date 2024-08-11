@@ -170,7 +170,7 @@ def start_cap():
                             time.strftime('%Y-%m-%d', time.localtime()))
 
     # 最后的save_dir
-    select_dir.set(save_dir)
+    # select_dir.set(save_dir)
     # messagebox.showinfo("设置成功", f"保存目录已设置为：{save_dir}")
 
     #  判断路径是否存在，不存在则创建
@@ -199,10 +199,11 @@ def start_cap():
     # onvif也是先获取rtsp地址，再截图
 
     if client_type == '海康':
-        capture_pool(csv_file, folder_path=save_dir)
+        capture_pool(csv_file, camera_type="hik",folder_path=save_dir)
 
     elif client_type == '大华':
         capture_pool(csv_file, camera_type='dahua', folder_path=save_dir)
+
     elif client_type == 'onvif':
         # capture_pool(csv_file, camera_type='onvif', folder_path=save_dir)
         onvif_pool(csv_file, folder_path=save_dir)

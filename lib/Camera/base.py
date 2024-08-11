@@ -240,6 +240,7 @@ class Camera:
         if self.camera_type == "dahua" and self.ip:
             return f"rtsp://admin:{self.password}@{self.ip}:554/cam/realmonitor?channel=1&subtype=0"
         # 电脑摄像头
+        # TODO 多个摄像头的情况
         elif self.camera_type == "computer" or not self.ip:
             return 0
         # 海康威视
