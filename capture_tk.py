@@ -14,7 +14,7 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, Label, messagebox
+from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, Label
 from tkinter.scrolledtext import ScrolledText
 
 from PIL import ImageTk, Image
@@ -104,7 +104,9 @@ save_dir = None
 
 def select_file():
     # 单个文件选择
-    selected_file_path = filedialog.askopenfilename()  # 使用askopenfilename函数选择单个文件
+    selected_file_path = filedialog.askopenfilename(
+        filetypes=[('csv files', '*.csv'), ("All Files", "*.*")]  # 设置文件类型
+    )  # 使用askopenfilename函数选择单个文件
     select_path.set(selected_file_path)
 
 
@@ -167,10 +169,11 @@ def start_cap():
     # 截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
     save_dir = os.path.join((dir_entry.get() or
                              os.path.splitext(os.path.basename(csv_file))[0]),
-                            time.strftime('%Y-%m-%d', time.localtime()))
+                            time.strftime('%Y-%m-%d', time.localtime()),
+                            time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime()))
 
-    # 最后的save_dir
-    # select_dir.set(save_dir)
+    # 保存截图的文件夹默认是 csv文件名 + 当前日期,设置保存截图的文件夹的默认值
+    select_dir.set(save_dir)
     # messagebox.showinfo("设置成功", f"保存目录已设置为：{save_dir}")
 
     #  判断路径是否存在，不存在则创建
@@ -199,7 +202,7 @@ def start_cap():
     # onvif也是先获取rtsp地址，再截图
 
     if client_type == '海康':
-        capture_pool(csv_file, camera_type="hik",folder_path=save_dir)
+        capture_pool(csv_file, camera_type="hik", folder_path=save_dir)
 
     elif client_type == '大华':
         capture_pool(csv_file, camera_type='dahua', folder_path=save_dir)
