@@ -154,6 +154,9 @@ def start_cap():
     console.scrolled_text.delete("1.0", 'end')
     console.scrolled_text.configure(state='disabled')
 
+    # 清空select_dir
+    select_dir.set('')
+
     # 获取摄像头类型
     client_type = numberChosen.get()
     logger.debug(f"采集的摄像头类型为：{client_type}")
