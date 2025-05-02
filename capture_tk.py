@@ -161,6 +161,10 @@ def start_cap():
     client_type = numberChosen.get()
     logger.debug(f"采集的摄像头类型为：{client_type}")
 
+    # 获取是否添加水印
+    watermark_flag = watermark_var.get()
+    logger.debug(f"是否添加水印：{watermark_flag}")
+
     # 网络摄像头截图csv 文件的路径
     csv_file = csv_entry.get()
 
@@ -189,6 +193,7 @@ def start_cap():
 
     logger.info(f'摄像头类型：{client_type}')
     logger.info(f'截图保存路径：{save_dir}')
+    logger.info(f'是否添加水印：{"是" if watermark_flag else "否"}')
 
     # 如果是电脑摄像头，直接截图
     if client_type == '电脑':
@@ -205,10 +210,10 @@ def start_cap():
     # onvif也是先获取rtsp地址，再截图
 
     if client_type == '海康':
-        capture_pool(csv_file, camera_type="hik", folder_path=save_dir)
+        capture_pool(csv_file, camera_type="hik", is_water_mark=watermark_flag, folder_path=save_dir)
 
     elif client_type == '大华':
-        capture_pool(csv_file, camera_type='dahua', folder_path=save_dir)
+        capture_pool(csv_file, camera_type='dahua', is_water_mark=watermark_flag, folder_path=save_dir)
 
     elif client_type == 'onvif':
         # capture_pool(csv_file, camera_type='onvif', folder_path=save_dir)
@@ -261,6 +266,7 @@ frame1.grid(row=10, column=0, columnspan=5, padx=20)
 # 初始化Entry控件的text variable属性值
 select_path = tk.StringVar()
 select_dir = tk.StringVar()
+watermark_var = tk.BooleanVar(value=True)  # 添加水印复选框变量，默认选中
 
 # 布局空间
 
@@ -297,6 +303,10 @@ dir_entry.grid(column=1, row=2, sticky=tk.W)
 
 # 截图保存路径浏览按钮
 tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
+
+# 添加水印复选框
+watermark_check = tk.Checkbutton(root, text="添加水印", variable=watermark_var, font='微软雅黑 12')
+watermark_check.grid(row=3, column=0, sticky=tk.W, padx=20)
 
 # 采集按钮
 capture_button = tk.Button(root,
