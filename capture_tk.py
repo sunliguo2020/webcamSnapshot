@@ -250,7 +250,10 @@ def open_folder(save_dir):
 
     """
     logger.debug(f'要打开截图保存路径：{save_dir}')
-    os.startfile(save_dir)
+    try:
+        os.startfile(save_dir)
+    except Exception as e:
+        logger.debug(f'打开截图保存路径失败：{e}')
 
 
 root = tk.Tk()

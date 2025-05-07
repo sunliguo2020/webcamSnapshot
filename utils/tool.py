@@ -9,9 +9,9 @@ import csv
 import logging
 import os
 import socket
+from typing import Dict, Iterator, Optional
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger('camera_logger')
 
 
 def portisopen(ip, port):
@@ -107,20 +107,64 @@ def convert_ip_list(csv_file):
     return cam_list
 
 
-def get_cam_list(csv_file):
+def get_cam_list(csv_file: str, required_fields: Optional[list] = None) -> Iterator[Dict[str, str]]:
     """
+    读取csv文件并转换为字典生成器
     csv文件第一行为字典的键
     读取csv文件的，转换为 字典
-    @param csv_file:
-    @return: 包含ip，password等字典
+    @param csv_file: csv文件路径
+    @required_fields:必须包含的字段列表，如果缺少会抛出异常
+    @return: 生成器，每次产生一行数据的字典
+    异常：
+        ValueError
     """
-    # 将csv文件转为 摄像头对象的列表
-    # TODO csv文件没有第一行表头的情况
-    with open(csv_file, 'r', encoding='utf-8') as fp:
-        for item in csv.DictReader(fp):
-            yield item
+    # 默认必要字段
+    if required_fields is None:
+        required_fields = ['ip', 'password']
+
+    try:
+        with open(csv_file, 'r', encoding='utf-8') as fp:
+            # 检查文件是否为空
+            first_line = fp.readline()
+            if not first_line:
+                raise ValueError(f"CSV文件 '{csv_file}' 是空的")
+            fp.seek(0)  # 重置文件指针
+
+            reader = csv.DictReader(fp)
+
+            # 检查是否有表头
+            if not reader.fieldnames:
+                raise ValueError(f"CSV文件 '{csv_file}' 缺少表头")
+
+            # 检查必要字段
+            missing_fields = [field for field in required_fields if field not in reader.fieldnames]
+            if missing_fields:
+                raise ValueError(f"CSV文件 '{csv_file}' 缺少必要字段: {missing_fields}")
+
+            line_num = 1  # 第一行是header，从第二行开始计数
+            for line_num, row in enumerate(reader, 2):  # 从第2行开始计数
+                # 检查必要字段是否有值
+                missing_values = [field for field in required_fields if not row.get(field)]
+                if missing_values:
+                    logger.warning(f"第 {line_num} 行缺少值: {missing_values}")
+                    continue
+
+                # 清理数据：去除字符串两端的空格
+                cleaned_row = {k: v.strip() if isinstance(v, str) else v for k, v in row.items()}
+
+                yield cleaned_row
+
+    except FileNotFoundError:
+        logger.error(f"文件不存在: {csv_file}")
+        raise
+    except UnicodeDecodeError:
+        logger.error(f"文件编码错误，请确保使用UTF-8编码: {csv_file}")
+        raise
+    except Exception as e:
+        logger.error(f"处理CSV文件时发生意外错误: {e}")
+        raise
 
 
 if __name__ == '__main__':
-    for item in get_cam_list('../txt/test.csv'):
+    for item in get_cam_list(r'd:/寿光泽润.csv'):
         print(item)
