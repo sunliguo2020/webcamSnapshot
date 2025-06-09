@@ -97,7 +97,7 @@ def dahua_channel(ip, password, channel_no=65):
     """
     # print("要下载的摄像头的ip和password:", ip, password)
 
-    # if not portisopen(ip, 554):
+    # if not is_port_open(ip, 554):
     #     print(f"{ip} 554 端口没有打开")
     #     return -1
     for i in range(1, channel_no):

@@ -14,7 +14,7 @@ import cv2
 from PIL import ImageTk, Image
 
 from lib.OnvifClient import OnvifClient
-from utils.tool import portisopen
+from utils.tool import is_port_open
 
 logger = logging.getLogger('camera_logger')
 
@@ -58,6 +58,7 @@ class Camera:
     可以捕捉支持rtsp协议的网络摄像头，或者是电脑的摄像头
     或者通过onvif协议获取rtsp的地址
     """
+    RTSP_PORT = 554  # RTSP默认端口
 
     def __init__(
             self,
@@ -130,7 +131,7 @@ class Camera:
         # 检查摄像头是否可用
         if not self.check_camera():
             logger.debug(f"{self.ip} 554 端口没有打开或者网络不通")
-            return -1, None
+            return -1, f"{self.ip} 554 端口没有打开或者网络不通"
         try:
             # 获取摄像头视频帧
             cam = cv2.VideoCapture(self.camera_path)
@@ -156,11 +157,11 @@ class Camera:
                 return 1, self.file_full_path
             else:
                 logger.debug('截图保存失败！')
-                return -2, None
+                return -2, '截图保存失败！'
 
         except Exception as e:
             logger.error(f"捕获图像时发生错误：{e}")
-            return -3, None
+            return -3, f"捕获图像时发生错误：{e}"
 
         finally:
             # 释放资源
@@ -171,14 +172,33 @@ class Camera:
 
             cv2.destroyAllWindows()
 
-    def check_camera(self):
+    def check_camera(self) -> bool:
         """
         检查摄像头是否可用
+        @return:
+            bool:True 表示摄像头可用，False表示不可用
+        Note:
+             - 当camera_path为0时，表示使用本地摄像头，直接返回True
+            - 对于网络摄像头，检查554端口是否开放
         """
-        logger.debug(f"检测camera是否可用:{self.camera_path}")
-        if self.camera_path != 0 and not portisopen(self.ip, 554):
+        # 本地摄像头直接返回可用
+        if self.camera_path == 0:
+            logger.debug("检测到本地摄像头，默认可用")
+            return True
+
+        logger.debug(f"开始检测网络摄像头可用性，IP: {self.ip}")
+
+        try:
+            if not is_port_open(self.ip, self.RTSP_PORT):
+                logger.warning(f"摄像头 {self.ip} 的554端口不可达")
+                return False
+
+            logger.debug(f"摄像头 {self.ip} 检测正常")
+            return True
+
+        except Exception as e:
+            logger.error(f"检测摄像头 {self.ip} 时发生异常: {str(e)}")
             return False
-        return True
 
     def watermark(self):
         """

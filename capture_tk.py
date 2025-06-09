@@ -102,6 +102,13 @@ class LogWidget:
 save_dir = None
 
 
+def clear_log():
+    """清空日志区的函数"""
+    console.scrolled_text.configure(state='normal')
+    console.scrolled_text.delete("1.0", 'end')
+    console.scrolled_text.configure(state='disabled')
+
+
 def select_file():
     # 单个文件选择
     selected_file_path = filedialog.askopenfilename(
@@ -150,9 +157,7 @@ def start_cap():
     """
     global save_dir
     # 清空日志区
-    console.scrolled_text.configure(state='normal')
-    console.scrolled_text.delete("1.0", 'end')
-    console.scrolled_text.configure(state='disabled')
+    clear_log()
 
     # 清空select_dir
     select_dir.set('')
@@ -188,7 +193,6 @@ def start_cap():
         os.makedirs(save_dir, exist_ok=True)
 
     # 生成打开该路径的按钮
-    # open_button.configure(command=lambda: os.startfile(save_dir))
     open_button.configure(command=lambda: open_folder(save_dir))
 
     logger.info(f'摄像头类型：{client_type}')
@@ -322,8 +326,11 @@ capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
 
 # 打开截图目录
 open_button = tk.Button(root, text='打开截图路径')
+open_button.grid(row=8, column=2, sticky='ew')
 
-open_button.grid(row=8, column=2, columnspan=2, sticky='ew')
+# 清空日志按钮
+clear_button = tk.Button(root, text='清空日志', command=clear_log)
+clear_button.grid(row=8, column=3, sticky='ew')
 
 if __name__ == '__main__':
     root.mainloop()

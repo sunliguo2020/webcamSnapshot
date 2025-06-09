@@ -14,7 +14,7 @@ from typing import Dict, Iterator, Optional
 logger = logging.getLogger('camera_logger')
 
 
-def portisopen(ip, port):
+def is_port_open(ip, port):
     """
     检测某个ip地址的端口是否开启
     :param ip:
@@ -112,8 +112,8 @@ def get_cam_list(csv_file: str, required_fields: Optional[list] = None) -> Itera
     读取csv文件并转换为字典生成器
     csv文件第一行为字典的键
     读取csv文件的，转换为 字典
+    @param required_fields: 必须包含的字段列表，如果缺少会抛出异常
     @param csv_file: csv文件路径
-    @required_fields:必须包含的字段列表，如果缺少会抛出异常
     @return: 生成器，每次产生一行数据的字典
     异常：
         ValueError
@@ -134,7 +134,10 @@ def get_cam_list(csv_file: str, required_fields: Optional[list] = None) -> Itera
 
             # 检查是否有表头
             if not reader.fieldnames:
+                logger.debug(f"CSV文件 '{csv_file}' 缺少表头")
                 raise ValueError(f"CSV文件 '{csv_file}' 缺少表头")
+            else:
+                logger.debug(f"CSV文件 '{csv_file}' 表头: {reader.fieldnames}")
 
             # 检查必要字段
             missing_fields = [field for field in required_fields if field not in reader.fieldnames]

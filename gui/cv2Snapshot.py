@@ -12,7 +12,7 @@ import logging
 import os
 import time
 
-from utils.tool import portisopen, gen_ip_password_from_csv
+from utils.tool import is_port_open, gen_ip_password_from_csv
 
 try:
     import cv2
@@ -86,7 +86,7 @@ def cv2_video_capture(cam_ip, cam_pwd, cam_client='hik', channel_no=1, save_dir=
     :return: < 0 : 报错退出
     """
     # 判断rtsp协议的554端口有没有打开。
-    port_open_result = portisopen(cam_ip, 554)
+    port_open_result = is_port_open(cam_ip, 554)
     logger.debug(f"判断{cam_ip}端口是否打开:{port_open_result}")
 
     if not port_open_result:

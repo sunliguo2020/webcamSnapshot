@@ -27,7 +27,9 @@ def capture_pool(csv_file, *args, **kwargs):
     """
     # 准备失败IP保存路径
     fail_log_dir = "fail_logs"
-    os.makedirs(fail_log_dir, exist_ok=True)
+    if not os.path.exists(fail_log_dir):
+        os.makedirs(fail_log_dir, exist_ok=True)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     fail_log_file = os.path.join(fail_log_dir, f"failed_ips_{timestamp}.csv")
 
