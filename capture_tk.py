@@ -14,7 +14,7 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, Label
+from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, Label, messagebox
 from tkinter.scrolledtext import ScrolledText
 
 from PIL import ImageTk, Image
@@ -174,9 +174,37 @@ def start_cap():
     csv_file = csv_entry.get()
 
     # 判断csv_file的合法性，如果是电脑摄像头的话，不用考虑csv
-    if client_type != '电脑' and (not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv"):
-        logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
-        raise ValueError('请重新选择包含ip,password的文件!')
+    if client_type != '电脑':
+        # 判断文件是否存在和扩展名
+        if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv":
+            logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
+            # 弹出错误窗口
+            # root.withdraw()  # 隐藏主窗口
+            messagebox.showerror("文件类型错误", "没有选择选择首行是ip,password的csv文件!")
+            # root.destroy()
+            raise ValueError('请重新选择包含ip,password的文件!')
+
+        # 检查csv文件首行内容
+        try:
+            with open(csv_file,'r',encoding='utf-8') as f:
+                first_line = f.readline().strip()
+                # 检查首行是否包含ip和password（不区分大小写）
+                expected_headers = ['ip','password']
+                actual_headers = [header.strip().lower() for header in first_line.split(',')]
+            if not all(header in actual_headers for header in expected_headers):
+                logger.error(f'CSV文件格式不合法，首行必须包含ip和password!')
+                # 弹出错误窗口
+                messagebox.showerror("错误", "CSV文件格式不合法，首行必须包含ip和password!")
+                raise ValueError('CSV文件格式不合法，首行必须包含ip和password!')
+        except ValueError as e:
+            # 这里捕获的是我们主动抛出的ValueError，不需要再次弹出窗口
+            # 直接重新抛出异常即可
+            raise e
+        except Exception as e:
+            logger.error(f'读取CSV文件失败: {str(e)}')
+            # 弹出错误窗口
+            messagebox.showerror("错误", f"读取CSV文件失败: {str(e)}")
+            raise ValueError(f'读取CSV文件失败: {str(e)}')
 
     # 截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
     save_dir = os.path.join((dir_entry.get() or
