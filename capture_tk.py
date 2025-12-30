@@ -114,7 +114,9 @@ def select_file():
     selected_file_path = filedialog.askopenfilename(
         filetypes=[('csv files', '*.csv'), ("All Files", "*.*")]  # 设置文件类型
     )  # 使用askopenfilename函数选择单个文件
-    select_path.set(selected_file_path)
+    if selected_file_path:
+        select_path.set(selected_file_path) # 设置文本变量
+        csv_entry.xview_moveto(1.0)
 
 
 def select_files():
@@ -275,15 +277,15 @@ def display_image(image_path):
     image_label.grid(row=10, column=1, sticky=W, padx=20)
 
 
-def open_folder(save_dir):
+def open_folder(jpg_dir):
     """
     打开截图的文件夹
     Returns:
 
     """
-    logger.debug(f'要打开截图保存路径：{save_dir}')
+    logger.debug(f'要打开截图保存路径：{jpg_dir}')
     try:
-        os.startfile(save_dir)
+        os.startfile(jpg_dir)
     except Exception as e:
         logger.debug(f'打开截图保存路径失败：{e}')
 
@@ -322,7 +324,7 @@ numberChosen.bind("<<ComboboxSelected>>", callbackFunc)
 csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12', fg='green')
 csv_file_label.grid(column=0, row=1, sticky=tk.W, padx=20)
 # 输入框
-csv_entry = tk.Entry(root, textvariable=select_path)
+csv_entry = tk.Entry(root, textvariable=select_path, justify=tk.RIGHT)
 csv_entry.grid(column=1, row=1, sticky=tk.W)
 
 csv_button = tk.Button(root, text="浏览", command=select_file)
