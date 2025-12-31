@@ -194,6 +194,36 @@ def callbackFunc(event):
         csv_button['state'] = NORMAL
 
 
+def batch_capture_computer_cameras(folder_path=None, is_water_mark=True):
+    """
+    辅助函数：电脑所有可用摄像头批量截图
+    @param folder_path: 统一保存文件夹路径
+    @param is_water_mark: 是否添加水印
+    @return: dict 键：摄像头索引，值：截图结果（status, file_path/error_msg）
+    """
+    # 1. 枚举所有可用摄像头
+    available_cams = Camera.enum_computer_cameras()
+    if not available_cams:
+        logger.warning("未检测到可用电脑摄像头")
+        return {}
+
+    # 2. 遍历每个摄像头，分别截图
+    capture_results = {}
+    for cam_index in available_cams:
+        # 创建摄像头实例
+        cam = Camera(
+            camera_type="computer",
+            cam_index=cam_index,
+            folder_path=folder_path,
+            is_water_mark=is_water_mark
+        )
+        # 执行截图
+        result = cam.capture()
+        capture_results[cam_index] = result
+
+    return capture_results
+
+
 def start_cap():
     """
     开始采集按钮绑定的函数
@@ -287,13 +317,13 @@ def start_cap():
 
         # 如果是电脑摄像头，直接截图
         if client_type == '电脑':
-            result = Camera(camera_type='computer',folder_path=save_dir).capture()
-            if result[0] == 1:
-                logger.debug(f"截图成功！图片路径为：{result[1]}")
-                image_path = result[1]  # 获取截图文件的路径
-                display_image(image_path)  # 显示捕获的图像
-            else:
-                logger.debug(f'电脑截图失败！')
+            result = batch_capture_computer_cameras(folder_path=save_dir)
+            logger.info(f"电脑多摄像头批量截图结果：{result}")
+            for cam_index,(status,file_path) in result.items():
+                # 截图成功
+                if status == 1:
+                    logger.debug(f"显示摄像头{cam_index}的截图:{file_path}")
+                    display_image(file_path)
             return
 
         # 其余为海康 大华的rtsp协议
@@ -378,7 +408,6 @@ root.geometry(WINDOW_GEOMETRY)
 image_label = Label(root)
 image_label.grid(row=9, column=1, sticky=W, padx=20)
 
-
 frame1 = tk.Frame(root)
 console = LogWidget(frame1)
 frame1.grid(row=10, column=0, columnspan=5, padx=20)
@@ -437,7 +466,7 @@ capture_button = tk.Button(root,
                            width=20,
                            command=lambda: threading.Thread(target=start_cap).start())
 #
-capture_button.grid(row=8, column=0, columnspan=2, padx=(2,10), pady=10,sticky=tk.W)
+capture_button.grid(row=8, column=0, columnspan=2, padx=(2, 10), pady=10, sticky=tk.W)
 
 # 打开截图目录
 open_button = tk.Button(root, text='打开截图路径')
