@@ -14,8 +14,9 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, Label, messagebox
+from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, messagebox
 from tkinter.scrolledtext import ScrolledText
+from tkinter.ttk import Label
 
 from PIL import ImageTk, Image
 
@@ -23,6 +24,16 @@ from lib.Camera import Camera
 from utils.capture_pool import capture_pool, onvif_pool
 
 logger = logging.getLogger('camera_logger')
+
+# 新增：常量定义区
+WINDOW_TITLE = "网络摄像头截图小工具"
+WINDOW_GEOMETRY = "650x450+300+200"
+FONT_NORMAL = ("微软雅黑", 12)
+FONT_LOG = ("宋体", 10)
+CSV_FILE_TYPES = [("CSV文件", "*.csv"), ("所有文件", "*.*")]
+CAMERA_TYPES = ("海康", "大华", "onvif", "电脑")
+REQUIRED_CSV_HEADERS = ("ip", "password")
+IMAGE_DISPLAY_SIZE = (100, 50)
 
 
 class QueueHandler(logging.Handler):
@@ -101,6 +112,9 @@ class LogWidget:
 # 新增：定义GUI操作队列（全局或类属性）
 gui_queue = queue.Queue()
 
+# 新增：全局状态变量
+is_capturing = False
+
 
 # 新增：GUI轮询队列，处理子线程的GUI操作请求
 def poll_gui_queue():
@@ -111,6 +125,8 @@ def poll_gui_queue():
                 messagebox.showerror(*args)
             elif task == "show_info":
                 messagebox.showinfo(*args)
+            elif task == "show_warning":
+                messagebox.showwarning(*args)
             elif task == "display_image":
                 display_image(*args)
         except queue.Empty:
@@ -127,6 +143,12 @@ def clear_log():
     console.scrolled_text.configure(state='normal')
     console.scrolled_text.delete("1.0", 'end')
     console.scrolled_text.configure(state='disabled')
+    # 清空日志队列
+    while not console.log_queue.empty():
+        try:
+            console.log_queue.get(block=False)
+        except queue.Empty:
+            break
 
 
 def select_file():
@@ -177,102 +199,126 @@ def start_cap():
     开始采集按钮绑定的函数
     :return:
     """
-    global save_dir
-    # 清空日志区
-    clear_log()
+    global save_dir, is_capturing
+    if is_capturing:
+        gui_queue.put(("show_warning", ("提示", "截图任务正在进行中，请稍后！")))
+        return
+    is_capturing = True
 
-    # 清空select_dir
-    select_dir.set('')
+    # 禁用关键按钮
+    capture_button.config(state=DISABLED)
+    csv_button.config(state=DISABLED)
 
-    # 获取摄像头类型
-    client_type = numberChosen.get()
-    logger.debug(f"采集的摄像头类型为：{client_type}")
+    try:
+        # 清空日志区
+        clear_log()
 
-    # 获取是否添加水印
-    watermark_flag = watermark_var.get()
-    logger.debug(f"是否添加水印：{watermark_flag}")
+        # 清空select_dir
+        select_dir.set('')
 
-    # 网络摄像头截图csv 文件的路径
-    csv_file = csv_entry.get()
+        # 获取摄像头类型
+        client_type = numberChosen.get()
+        logger.debug(f"采集的摄像头类型为：{client_type}")
 
-    # 判断csv_file的合法性，如果是电脑摄像头的话，不用考虑csv
-    if client_type != '电脑':
-        # 判断文件是否存在和扩展名
-        if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv":
-            logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
-            # 弹出错误窗口
-            # root.withdraw()  # 隐藏主窗口
-            gui_queue.put(("show_error", ("文件类型错误", "没有选择首行是ip,password的csv文件!")))
-            # messagebox.showerror("文件类型错误", "没有选择选择首行是ip,password的csv文件!")
-            # root.destroy()
-            raise ValueError('请重新选择包含ip,password的文件!')
+        # 获取是否添加水印
+        watermark_flag = watermark_var.get()
+        logger.debug(f"是否添加水印：{watermark_flag}")
 
-        # 检查csv文件首行内容
-        try:
-            with open(csv_file, 'r', encoding='utf-8') as f:
-                first_line = f.readline().strip()
-                # 检查首行是否包含ip和password（不区分大小写）
-                expected_headers = ['ip', 'password']
-                actual_headers = [header.strip().lower() for header in first_line.split(',')]
-            if not all(header in actual_headers for header in expected_headers):
-                logger.error(f'CSV文件格式不合法，首行必须包含ip和password!')
+        # 网络摄像头截图csv 文件的路径
+        csv_file = csv_entry.get()
+
+        # 判断csv_file的合法性
+        # 如果是电脑摄像头的话，不用考虑csv
+        if client_type != '电脑':
+            # 判断文件是否存在和扩展名
+            if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv":
+                logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
                 # 弹出错误窗口
-                messagebox.showerror("错误", "CSV文件格式不合法，首行必须包含ip和password!")
-                raise ValueError('CSV文件格式不合法，首行必须包含ip和password!')
-        except ValueError as e:
-            # 这里捕获的是我们主动抛出的ValueError，不需要再次弹出窗口
-            # 直接重新抛出异常即可
-            raise e
-        except Exception as e:
-            logger.error(f'读取CSV文件失败: {str(e)}')
-            # 弹出错误窗口
-            messagebox.showerror("错误", f"读取CSV文件失败: {str(e)}")
-            raise ValueError(f'读取CSV文件失败: {str(e)}')
+                gui_queue.put(("show_error", ("文件类型错误", "没有选择首行是ip,password的csv文件!")))
+                raise ValueError('请重新选择包含ip,password的文件!')
 
-    # 截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
-    save_dir = os.path.join((dir_entry.get() or
-                             os.path.splitext(os.path.basename(csv_file))[0]),
-                            time.strftime('%Y-%m-%d', time.localtime()),
-                            time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime()))
+            # 检查csv文件首行内容
+            try:
+                with open(csv_file, 'r', encoding='utf-8') as f:
+                    first_line = f.readline().strip()
+                    # 检查首行是否包含ip和password（不区分大小写）
+                    expected_headers = ['ip', 'password']
+                    actual_headers = [header.strip().lower() for header in first_line.split(',')]
+                if not all(header in actual_headers for header in expected_headers):
+                    logger.error(f'CSV文件格式不合法，首行必须包含ip和password!')
+                    # 弹出错误窗口
+                    # messagebox.showerror("错误", "CSV文件格式不合法，首行必须包含ip和password!")
+                    gui_queue.put(("show_error", (
+                        "错误", "CSV文件格式不合法，首行必须包含ip和password"
+                    )))
+                    raise ValueError('CSV文件格式不合法，首行必须包含ip和password!')
+            except ValueError as e:
+                # 这里捕获的是我们主动抛出的ValueError，不需要再次弹出窗口
+                # 直接重新抛出异常即可
+                raise e
+            except Exception as e:
+                logger.error(f'读取CSV文件失败: {str(e)}')
+                # 弹出错误窗口
+                gui_queue.put(("show_error", ("错误", f"读取CSV文件失败: {str(e)}")))
+                raise ValueError(f'读取CSV文件失败: {str(e)}')
 
-    # 保存截图的文件夹默认是 csv文件名 + 当前日期,设置保存截图的文件夹的默认值
-    select_dir.set(save_dir)
-    # messagebox.showinfo("设置成功", f"保存目录已设置为：{save_dir}")
+        # 截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
+        basename = ""
+        if client_type != "电脑" and csv_file:
+            basename = os.path.splitext(os.path.basename(csv_file))[0]
+        default_base_dir = dir_entry.get() or os.path.join(os.getcwd(), basename)
+        time_dir1 = time.strftime('%Y-%m-%d', time.localtime())
+        time_dir2 = time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime())
+        save_dir = os.path.join(default_base_dir, time_dir1, time_dir2)
 
-    #  判断路径是否存在，不存在则创建
-    if os.path.exists(save_dir):
+        # 保存截图的文件夹默认是 csv文件名 + 当前日期,设置保存截图的文件夹的默认值
+        select_dir.set(save_dir)
+        #  冗余判断移除，直接创建目录
         os.makedirs(save_dir, exist_ok=True)
 
-    # 生成打开该路径的按钮
-    open_button.configure(command=lambda: open_folder(save_dir))
+        # 生成打开该路径的按钮
+        open_button.configure(command=lambda: open_folder(save_dir))
 
-    logger.info(f'摄像头类型：{client_type}')
-    logger.info(f'截图保存路径：{save_dir}')
-    logger.info(f'是否添加水印：{"是" if watermark_flag else "否"}')
+        logger.info(f'摄像头类型：{client_type}')
+        logger.info(f'截图保存路径：{save_dir}')
+        logger.info(f'是否添加水印：{"是" if watermark_flag else "否"}')
 
-    # 如果是电脑摄像头，直接截图
-    if client_type == '电脑':
-        result = Camera(camera_type='computer').capture()
-        if result[0] == 1:
-            logger.debug(f"截图成功！图片路径为：{result[1]}")
-            image_path = result[1]  # 获取截图文件的路径
-            display_image(image_path)  # 显示捕获的图像
-        else:
-            logger.debug(f'电脑截图失败！')
-        return
+        gui_queue.put(("show_info", ("开始截图", f"已启动{client_type}摄像头截图，保存路径：{save_dir}")))
 
-    # 其余为海康 大华的rtsp协议
-    # onvif也是先获取rtsp地址，再截图
+        # 如果是电脑摄像头，直接截图
+        if client_type == '电脑':
+            result = Camera(camera_type='computer',folder_path=save_dir).capture()
+            if result[0] == 1:
+                logger.debug(f"截图成功！图片路径为：{result[1]}")
+                image_path = result[1]  # 获取截图文件的路径
+                display_image(image_path)  # 显示捕获的图像
+            else:
+                logger.debug(f'电脑截图失败！')
+            return
 
-    if client_type == '海康':
-        capture_pool(csv_file, camera_type="hik", is_water_mark=watermark_flag, folder_path=save_dir)
+        # 其余为海康 大华的rtsp协议
+        # onvif也是先获取rtsp地址，再截图
 
-    elif client_type == '大华':
-        capture_pool(csv_file, camera_type='dahua', is_water_mark=watermark_flag, folder_path=save_dir)
+        if client_type == '海康':
+            capture_pool(csv_file, camera_type="hik", is_water_mark=watermark_flag, folder_path=save_dir)
 
-    elif client_type == 'onvif':
-        # capture_pool(csv_file, camera_type='onvif', folder_path=save_dir)
-        onvif_pool(csv_file, folder_path=save_dir)
+        elif client_type == '大华':
+            capture_pool(csv_file, camera_type='dahua', is_water_mark=watermark_flag, folder_path=save_dir)
+
+        elif client_type == 'onvif':
+            # capture_pool(csv_file, camera_type='onvif', folder_path=save_dir)
+            onvif_pool(csv_file, folder_path=save_dir)
+    except Exception as e:
+        logger.error(f"截图任务异常:{str(e)}")
+        # 异常时也要确保状态充值
+    finally:
+        # 恢复状态:标记为未在截图
+        is_capturing = False
+        # 恢复按钮状态
+        capture_button.config(state=NORMAL)
+        # 只有非电脑摄像头时，才恢复csv_button状态
+        if numberChosen.get() != "电脑":
+            csv_button.config(state=NORMAL)
 
 
 def display_image(image_path):
@@ -283,19 +329,23 @@ def display_image(image_path):
     @param image_path:
     @return:
     """
-    # 打开图像文件
-    img = Image.open(image_path)
+    global image_label
+    try:
+        # 打开图像文件
+        img = Image.open(image_path)
 
-    # 将图像调整为合适的大小
-    img = img.resize((100, 50))
+        # 将图像调整为合适的大小
+        img = img.resize(IMAGE_DISPLAY_SIZE, Image.Resampling.LANCZOS)
 
-    # 将 PIL 图像转换为 PhotoImage
-    photo = ImageTk.PhotoImage(img)
-    # global image_label, root
-    # 创建 Label 组件以显示图像
-    image_label = Label(root, image=photo)
-    image_label.image = photo  # 保持对图片的引用，避免被垃圾回收
-    image_label.grid(row=10, column=1, sticky=W, padx=20)
+        # 将 PIL 图像转换为 PhotoImage
+        photo = ImageTk.PhotoImage(img)
+
+        image_label.config(image=photo)
+        image_label.image = photo  # 保持对图片的引用，避免被垃圾回收
+
+    except Exception as e:
+        logger.error(f"显示图片失败：{str(e)}")
+        gui_queue.put(("show_error", ("显示失败", f"无法加载图片:{str(e)}")))
 
 
 def open_folder(jpg_dir):
@@ -305,17 +355,29 @@ def open_folder(jpg_dir):
 
     """
     logger.debug(f'要打开截图保存路径：{jpg_dir}')
+    if not jpg_dir or not os.path.exists(jpg_dir):
+        gui_queue.put(("show_warning", ("提示", "截图目录不存在!")))
+        return
     try:
-        os.startfile(jpg_dir)
+        if os.name == 'nt':  # windows
+            os.startfile(jpg_dir)
+        else:
+            import subprocess
+            subprocess.run(['xdg-open' if os.name == 'posix' else 'open', jpg_dir])
     except Exception as e:
-        logger.debug(f'打开截图保存路径失败：{e}')
+        gui_queue.put(("show_error", ("打开失败", f"无法打开目录：{str(e)}")))
 
 
 root = tk.Tk()
 # 标题
-root.title('网络摄像头截图小工具')
+root.title(WINDOW_TITLE)
 # 定义窗口显示大小和显示位置
-root.geometry('650x450+300+200')
+root.geometry(WINDOW_GEOMETRY)
+
+# 提前初始化图像显示Label，避免重复创建
+image_label = Label(root)
+image_label.grid(row=9, column=1, sticky=W, padx=20)
+
 
 frame1 = tk.Frame(root)
 console = LogWidget(frame1)
@@ -345,7 +407,8 @@ numberChosen.bind("<<ComboboxSelected>>", callbackFunc)
 csv_file_label = tk.Label(root, text='包含ip和密码的csv文件路径:', font='微软雅黑 12', fg='green')
 csv_file_label.grid(column=0, row=1, sticky=tk.W, padx=20)
 # 输入框
-csv_entry = tk.Entry(root, textvariable=select_path, justify=tk.RIGHT)
+# 优化输入框宽度，添加水平滚动条
+csv_entry = tk.Entry(root, textvariable=select_path, justify=tk.RIGHT, width=30)  # 明确宽度
 csv_entry.grid(column=1, row=1, sticky=tk.W)
 
 csv_button = tk.Button(root, text="浏览", command=select_file)
@@ -356,7 +419,7 @@ cap_dir_label = tk.Label(root, text='截图保存位置\n(留空为当前目录)
 cap_dir_label.grid(row=2, column=0, sticky=tk.W, padx=20)
 
 # 截图保存目录
-dir_entry = tk.Entry(root, textvariable=select_dir)
+dir_entry = tk.Entry(root, textvariable=select_dir, width=30)
 dir_entry.grid(column=1, row=2, sticky=tk.W)
 
 # 截图保存路径浏览按钮
@@ -373,15 +436,16 @@ capture_button = tk.Button(root,
                            bg='lightblue',
                            width=20,
                            command=lambda: threading.Thread(target=start_cap).start())
-capture_button.grid(row=8, columnspan=4, padx=10, pady=10)
+#
+capture_button.grid(row=8, column=0, columnspan=2, padx=(2,10), pady=10,sticky=tk.W)
 
 # 打开截图目录
 open_button = tk.Button(root, text='打开截图路径')
-open_button.grid(row=8, column=2, sticky='ew')
+open_button.grid(row=8, column=2, padx=5, pady=10, sticky='ew')
 
 # 清空日志按钮
 clear_button = tk.Button(root, text='清空日志', command=clear_log)
-clear_button.grid(row=8, column=3, sticky='ew')
+clear_button.grid(row=8, column=3, padx=5, pady=10, sticky='ew')
 
 if __name__ == '__main__':
     root.after(100, poll_gui_queue)
