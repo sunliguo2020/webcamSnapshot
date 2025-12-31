@@ -98,6 +98,26 @@ class LogWidget:
         self.frame.after(100, self.poll_log_queue)
 
 
+# 新增：定义GUI操作队列（全局或类属性）
+gui_queue = queue.Queue()
+
+
+# 新增：GUI轮询队列，处理子线程的GUI操作请求
+def poll_gui_queue():
+    while True:
+        try:
+            task, args = gui_queue.get(block=False)
+            if task == "show_error":
+                messagebox.showerror(*args)
+            elif task == "show_info":
+                messagebox.showinfo(*args)
+            elif task == "display_image":
+                display_image(*args)
+        except queue.Empty:
+            break
+    root.after(100, poll_gui_queue)
+
+
 # 保存目录
 save_dir = None
 
@@ -115,7 +135,7 @@ def select_file():
         filetypes=[('csv files', '*.csv'), ("All Files", "*.*")]  # 设置文件类型
     )  # 使用askopenfilename函数选择单个文件
     if selected_file_path:
-        select_path.set(selected_file_path) # 设置文本变量
+        select_path.set(selected_file_path)  # 设置文本变量
         csv_entry.xview_moveto(1.0)
 
 
@@ -182,16 +202,17 @@ def start_cap():
             logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
             # 弹出错误窗口
             # root.withdraw()  # 隐藏主窗口
-            messagebox.showerror("文件类型错误", "没有选择选择首行是ip,password的csv文件!")
+            gui_queue.put(("show_error", ("文件类型错误", "没有选择首行是ip,password的csv文件!")))
+            # messagebox.showerror("文件类型错误", "没有选择选择首行是ip,password的csv文件!")
             # root.destroy()
             raise ValueError('请重新选择包含ip,password的文件!')
 
         # 检查csv文件首行内容
         try:
-            with open(csv_file,'r',encoding='utf-8') as f:
+            with open(csv_file, 'r', encoding='utf-8') as f:
                 first_line = f.readline().strip()
                 # 检查首行是否包含ip和password（不区分大小写）
-                expected_headers = ['ip','password']
+                expected_headers = ['ip', 'password']
                 actual_headers = [header.strip().lower() for header in first_line.split(',')]
             if not all(header in actual_headers for header in expected_headers):
                 logger.error(f'CSV文件格式不合法，首行必须包含ip和password!')
@@ -363,4 +384,5 @@ clear_button = tk.Button(root, text='清空日志', command=clear_log)
 clear_button.grid(row=8, column=3, sticky='ew')
 
 if __name__ == '__main__':
+    root.after(100, poll_gui_queue)
     root.mainloop()
