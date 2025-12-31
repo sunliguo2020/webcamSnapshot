@@ -319,11 +319,11 @@ def start_cap():
         if client_type == '电脑':
             result = batch_capture_computer_cameras(folder_path=save_dir)
             logger.info(f"电脑多摄像头批量截图结果：{result}")
-            for cam_index,(status,file_path) in result.items():
+            for cam_index, (status, file_path) in result.items():
                 # 截图成功
                 if status == 1:
                     logger.debug(f"显示摄像头{cam_index}的截图:{file_path}")
-                    display_image(file_path)
+                    display_image(file_path, main_window=root)
             return
 
         # 其余为海康 大华的rtsp协议
@@ -351,7 +351,7 @@ def start_cap():
             csv_button.config(state=NORMAL)
 
 
-def display_image(image_path):
+def display_image(image_path, main_window=None):
     """
     # img = Image.open("a.jpg").resize((160, 90))  # 打开图片
     # photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
@@ -359,23 +359,42 @@ def display_image(image_path):
     @param image_path:
     @return:
     """
+    # 1、创建Toplevel子窗口(替换Tk珠串口感）
+    # 若传入主窗口，则子窗口依附于主窗口；若未传入自动关联默认主窗口
+    sub_window = tk.Toplevel(main_window)
+    # 设置子窗口标题（显示文件名，更容易区分）
+    file_name = os.path.basename(image_path)
+    sub_window.title(f"截图预览-{file_name}")
+
     global image_label
+
+    # 2、打开并调整图片大小
     try:
         # 打开图像文件
         img = Image.open(image_path)
-
-        # 将图像调整为合适的大小
-        img = img.resize(IMAGE_DISPLAY_SIZE, Image.Resampling.LANCZOS)
+        # 按照比例缩放，避免窗口过大
+        img.thumbnail((700, 600), Image.Resampling.LANCZOS)
 
         # 将 PIL 图像转换为 PhotoImage
         photo = ImageTk.PhotoImage(img)
 
-        image_label.config(image=photo)
-        image_label.image = photo  # 保持对图片的引用，避免被垃圾回收
+        # 3. 创建 Label 显示图片，并强制保留图片引用（避免垃圾回收导致图片不显示）
+        label = tk.Label(sub_window, image=photo)
+        label.image = photo  # 关键：保留引用
+        label.pack(padx=10, pady=10)  # 增加内边距，优化显示效果
+
+        # 4. 可选：设置子窗口大小自适应图片，或固定大小
+        sub_window.geometry(f"{img.width + 20}x{img.height + 20}")  # 20是内边距补偿
 
     except Exception as e:
-        logger.error(f"显示图片失败：{str(e)}")
-        gui_queue.put(("show_error", ("显示失败", f"无法加载图片:{str(e)}")))
+        # 异常处理：图片打开失败时，在子窗口显示错误信息
+        error_label = tk.Label(sub_window, text=f"图片打开失败：{str(e)}", fg="red")
+        error_label.pack(padx=20, pady=20)
+        sub_window.title(f"错误 - {file_name}")
+
+        # 5. 关键：无需在子窗口调用 mainloop()，由主窗口统一管理，避免阻塞
+        # 若你的程序无主窗口（纯命令行），可注释下面的代码，并在函数末尾添加 sub_window.mainloop()
+    return sub_window
 
 
 def open_folder(jpg_dir):

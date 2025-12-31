@@ -226,7 +226,7 @@ class Camera:
         # 新增：电脑摄像头可用性检查
         if self.camera_type == "computer":
             logger.debug(f"检测电脑摄像头（索引{self.cam_index}）可用性")
-            cap = cv2.VideoCapture(self.cam_index, cv2.CAP_DSHOW)
+            cap = cv2.VideoCapture(self.cam_index, cv2.CAP_ANY)
             is_available = cap.isOpened()
             cap.release()
             cv2.destroyAllWindows()
