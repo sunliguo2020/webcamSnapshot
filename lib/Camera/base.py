@@ -123,8 +123,9 @@ class Camera:
             except OSError as e:
                 if e.errno != errno.EEXIST:  # 如果不是 "文件已存在" 错误
                     raise  # 如果不是文件已存在的错误，则抛出异常
-
-        self.file_full_path = os.path.join(self.folder_path, self.file_name)
+        # 延迟赋值，确保self.file_name属性加载完成后再拼接路径，避免控制
+        self.file_full_path = None
+        # self.file_full_path = os.path.join(self.folder_path, self.file_name)
 
     @staticmethod
     def enum_computer_cameras(max_index=10):
@@ -152,38 +153,51 @@ class Camera:
         返回 1 表示截图成功。
         返回 0 表示未进行截图操作。
         返回 -1、-2 或其他负数表示截图失败或出现错误。
-        :return: 返回1 截图成功
-        假设这个函数返回了一个元组（status, file_path）
+        :return: tuple （状态码，文件路径/错误信息）
         """
         # 构造摄像头描述信息
         if self.camera_type == "computer":
-            cam_desc = f"电脑摄像头（索引{self.cam_index}"
+            cam_desc = f"电脑摄像头（索引{self.cam_index}）"
         else:
             cam_desc = self.ip or "未指定IP的网络摄像头"
 
         logger.debug(f"ip:{cam_desc}开始截图")
         # 检查摄像头是否可用
+        # 提前统一赋值，覆盖所有分支
         if not self.check_camera():
             if self.camera_type == "computer":
                 err_msg = f"{cam_desc}不可用（未连接或者被占用）"
+            else:
+                err_msg = f"{cam_desc} 554端口不可达/摄像头离线"
+
             logger.debug(err_msg)
             return -1, err_msg
+
+        # 赋值完整路径，确保万无一失
+        if self.file_full_path is None:
+            self.file_full_path = os.path.join(self.folder_path, self.file_name)
+
+        cam = None
         try:
             # 获取摄像头视频帧
             cam = cv2.VideoCapture(self.camera_path)
             # 优化：摄像头添加缓冲区设置，提高截图质量
-            if self.camera_type == "commputer":
-                cam.set(cv2.CAP_PROP_FRAME_WIDTH,1920)
-                cam.set(cv2.CAP_PROP_FRAME_HEIGHT,1080)
+            if self.camera_type == "computer":
+                cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
                 # 读取2帧（丢弃第一帧模糊帧）
                 for _ in range(2):
                     cam.read()
             if not cam.isOpened():
                 raise RuntimeError("视频对象读取失败")
             else:
-                logger.debug(f"{f'电脑摄像头(索引{self.cam_index})' if self.camera_type == 'computer' else self.ip} 摄像头打开成功")
+                logger.debug(
+                    f"{f'电脑摄像头(索引{self.cam_index})' if self.camera_type == 'computer' else self.ip} 摄像头打开成功")
             # 读取摄像头
+            # 修复cv2读取桢无判断，防止None值传入水印函数
             ret, self.frame = cam.read()
+            if not ret or self.frame is None:
+                raise RuntimeError("读取摄像头桢数据失败，画面为空")
 
             # 添加水印
             if self.is_water_mark:
@@ -200,19 +214,25 @@ class Camera:
                 return -2, '截图保存失败！'
 
         except Exception as e:
-            logger.error(f"捕获图像时发生错误：{e}")
-            return -3, f"捕获图像时发生错误：{e}"
+            err_info = f"捕获图像时发生错误：{e}"
+            logger.error(err_info)
+            return -3, err_info
 
         finally:
             # 释放资源
-            if 'cam' in locals() and cam and cam.isOpened():
+            # 修复资源释放重复+冗余BUG- 简洁安全的释放方式，避免句柄残留
+            if cam is not None and cam.isOpened():
                 cam.release()
-                # 新增：强制清空缓存，避免句柄残留
-                cv2.VideoCapture(self.camera_path).release()
-            if self.frame is not None:
-                del self.frame
+
+            """  # 新增：强制清空缓存，避免句柄残留
+               cv2.VideoCapture(self.camera_path).release()
+           if self.frame is not None:
+               del self.frame
+           """
 
             cv2.destroyAllWindows()
+            # 清空桢变量，释放内存
+            self.frame = None
 
     def check_camera(self) -> bool:
         """
@@ -267,7 +287,8 @@ class Camera:
         )
 
         img_width = self.frame.shape[1]
-        img_hight = self.frame.shape[0]
+        # 修复变量名拼写错误  img_hight -> img_height
+        img_height = self.frame.shape[0]
 
         text_width = retval[0]
 
@@ -275,8 +296,11 @@ class Camera:
         if text_width > img_width:
             font_scale = font_scale * (img_width / text_width) * 0.8
             text_watermark_y = int(img_width * 0.1)  # 水印的新y坐标
+        # 修复水印Y轴写死缺陷，适配小分辨率截图
+        if text_watermark_y > img_height:
+            text_watermark_y = int(img_height * 0.1)
 
-            # 声明文字的坐标位置和参数
+        # 声明文字的坐标位置和参数
         text_position = (text_watermark_x, text_watermark_y)
         font_color = (100, 255, 0)
 
@@ -318,16 +342,19 @@ class Camera:
 
         # onvif 判断
         elif self.camera_type == "onvif" and self.ip and self.onvif_port:
-            client = OnvifClient(ip=self.ip,
-                                 port=self.onvif_port,
-                                 username=self.username,
-                                 password=self.password)
-            # 先连接摄像机
-            if not client.connect():
-                raise ConnectionError
-            return client.GetStreamUri()
+            try:
+                client = OnvifClient(ip=self.ip,
+                                     port=self.onvif_port,
+                                     username=self.username,
+                                     password=self.password)
+                # 先连接摄像机
+                if not client.connect():
+                    raise ConnectionError("ONVIF协议连接失败，用户名/密码错误或设备不支持ONVIF")
+                return client.GetStreamUri()
+            except Exception as e:
+                raise RuntimeError(f"获取ONVIF流地址失败：{str(e)}")
         else:
-            raise ValueError("camera type error!only dahua hik computer")
+            raise ValueError("camera type error!only dahua hik computer onvif")
 
     # @property装饰器的作用：1、让函数可以向普通遍历一样使用2、对要读取的数据进行预处理
     @property
