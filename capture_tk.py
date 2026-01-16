@@ -14,14 +14,15 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk, N, S, E, W, filedialog, END, DISABLED, NORMAL, messagebox
-from tkinter.scrolledtext import ScrolledText
+from tkinter import ttk, W, filedialog, DISABLED, NORMAL, messagebox
 from tkinter.ttk import Label
 
-from PIL import ImageTk, Image
 
+# 导入抽离的工具类
 from lib.Camera import Camera
 from utils.capture_pool import capture_pool, onvif_pool
+from utils.log_utils import LogWidget, gui_queue, is_capturing  # noqa: F401
+from utils.other_utils import open_folder, display_image
 
 logger = logging.getLogger('camera_logger')
 
@@ -35,88 +36,11 @@ CAMERA_TYPES = ("海康", "大华", "onvif", "电脑")
 REQUIRED_CSV_HEADERS = ("ip", "password")
 IMAGE_DISPLAY_SIZE = (100, 50)
 
-
-class QueueHandler(logging.Handler):
-    """
-    类将日志记录发送到队列
-    Class to send logging records to a queue
-    它可以在不同的线程中被使用
-    It can be used from different threads
-    ConsoleUi类轮询此队列以在ScrolledText小部件中显示记录
-    The ConsoleUi class polls this queue to display records in a ScrolledText widget
-    """
-
-    def __init__(self, log_queue):
-        super().__init__()
-        self.log_queue = log_queue
-
-    def emit(self, record):
-        """
-        用于实际输出日志记录
-        @param record:
-        @return:
-        """
-        self.log_queue.put(record)
+# 保存目录
+save_dir = None
 
 
-class LogWidget:
-    """
-    从日志记录队列轮询消息，并在滚动文本小部件中显示它们
-    Poll messages from a logging queue and display them in a scrolled text widget
-    """
-
-    def __init__(self, frame):
-        self.frame = frame
-        # Create a ScrolledText wdiget
-        self.scrolled_text = ScrolledText(frame, state='disabled', height=20)
-        self.scrolled_text.grid(row=10, column=0, sticky=(N, S, W, E))
-        self.scrolled_text.configure(font=('宋体', '10'))
-        self.scrolled_text.tag_config('INFO', foreground='black')
-        self.scrolled_text.tag_config('DEBUG', foreground='gray')
-        self.scrolled_text.tag_config('WARNING', foreground='orange')
-        self.scrolled_text.tag_config('ERROR', foreground='red')
-        self.scrolled_text.tag_config('CRITICAL', foreground='red', underline=True)
-
-        # Create a logging handler using a queue
-        # 创建一个使用队列的日志记录处理程序
-        self.log_queue = queue.Queue()
-        self.queue_handler = QueueHandler(self.log_queue)
-        formatter = logging.Formatter("%(asctime)s-%(name)s-%(levelname)s-%(filename)-8s: %(lineno)s line-%(message)s",
-                                      datefmt='%Y-%m-%d %H:%M:%S')
-        self.queue_handler.setFormatter(formatter)
-        logger.addHandler(self.queue_handler)
-
-        # Start polling messages from the queue
-        self.frame.after(100, self.poll_log_queue)
-
-    def display(self, record):
-        msg = self.queue_handler.format(record)
-        self.scrolled_text.configure(state='normal')
-        self.scrolled_text.insert(END, msg + '\n', record.levelname)
-        self.scrolled_text.configure(state='disabled')
-        # Autoscroll to the bottom
-        self.scrolled_text.yview(END)
-
-    def poll_log_queue(self):
-        # Check every 100ms if there is a new message in the queue to display
-        while True:
-            try:
-                record = self.log_queue.get(block=False)
-            except queue.Empty:
-                break
-            else:
-                self.display(record)
-        self.frame.after(100, self.poll_log_queue)
-
-
-# 新增：定义GUI操作队列（全局或类属性）
-gui_queue = queue.Queue()
-
-# 新增：全局状态变量
-is_capturing = False
-
-
-# 新增：GUI轮询队列，处理子线程的GUI操作请求
+# GUI队列轮询，处理子线程的GUI操作请求（弹窗、图片显示等）
 def poll_gui_queue():
     while True:
         try:
@@ -132,23 +56,6 @@ def poll_gui_queue():
         except queue.Empty:
             break
     root.after(100, poll_gui_queue)
-
-
-# 保存目录
-save_dir = None
-
-
-def clear_log():
-    """清空日志区的函数"""
-    console.scrolled_text.configure(state='normal')
-    console.scrolled_text.delete("1.0", 'end')
-    console.scrolled_text.configure(state='disabled')
-    # 清空日志队列
-    while not console.log_queue.empty():
-        try:
-            console.log_queue.get(block=False)
-        except queue.Empty:
-            break
 
 
 def select_file():
@@ -241,7 +148,7 @@ def start_cap():
 
     try:
         # 清空日志区
-        clear_log()
+        console.clear_log()
 
         # 清空select_dir
         select_dir.set('')
@@ -303,11 +210,11 @@ def start_cap():
 
         # 保存截图的文件夹默认是 csv文件名 + 当前日期,设置保存截图的文件夹的默认值
         select_dir.set(save_dir)
-        #  冗余判断移除，直接创建目录
+
         os.makedirs(save_dir, exist_ok=True)
 
         # 生成打开该路径的按钮
-        open_button.configure(command=lambda: open_folder(save_dir))
+        open_button.configure(command=lambda: open_folder(save_dir, logger, gui_queue))
 
         logger.info(f'摄像头类型：{client_type}')
         logger.info(f'截图保存路径：{save_dir}')
@@ -349,72 +256,6 @@ def start_cap():
         # 只有非电脑摄像头时，才恢复csv_button状态
         if numberChosen.get() != "电脑":
             csv_button.config(state=NORMAL)
-
-
-def display_image(image_path, main_window=None):
-    """
-    # img = Image.open("a.jpg").resize((160, 90))  # 打开图片
-    # photo = ImageTk.PhotoImage(img)  # 使用ImageTk的PhotoImage方法
-    # # tk.Label(master=root,image=photo).grid(row=0, column=4)
-    @param image_path:
-    @return:
-    """
-    # 1、创建Toplevel子窗口(替换Tk珠串口感）
-    # 若传入主窗口，则子窗口依附于主窗口；若未传入自动关联默认主窗口
-    sub_window = tk.Toplevel(main_window)
-    # 设置子窗口标题（显示文件名，更容易区分）
-    file_name = os.path.basename(image_path)
-    sub_window.title(f"截图预览-{file_name}")
-
-    global image_label
-
-    # 2、打开并调整图片大小
-    try:
-        # 打开图像文件
-        img = Image.open(image_path)
-        # 按照比例缩放，避免窗口过大
-        img.thumbnail((700, 600), Image.Resampling.LANCZOS)
-
-        # 将 PIL 图像转换为 PhotoImage
-        photo = ImageTk.PhotoImage(img)
-
-        # 3. 创建 Label 显示图片，并强制保留图片引用（避免垃圾回收导致图片不显示）
-        label = tk.Label(sub_window, image=photo)
-        label.image = photo  # 关键：保留引用
-        label.pack(padx=10, pady=10)  # 增加内边距，优化显示效果
-
-        # 4. 可选：设置子窗口大小自适应图片，或固定大小
-        sub_window.geometry(f"{img.width + 20}x{img.height + 20}")  # 20是内边距补偿
-
-    except Exception as e:
-        # 异常处理：图片打开失败时，在子窗口显示错误信息
-        error_label = tk.Label(sub_window, text=f"图片打开失败：{str(e)}", fg="red")
-        error_label.pack(padx=20, pady=20)
-        sub_window.title(f"错误 - {file_name}")
-
-        # 5. 关键：无需在子窗口调用 mainloop()，由主窗口统一管理，避免阻塞
-        # 若你的程序无主窗口（纯命令行），可注释下面的代码，并在函数末尾添加 sub_window.mainloop()
-    return sub_window
-
-
-def open_folder(jpg_dir):
-    """
-    打开截图的文件夹
-    Returns:
-
-    """
-    logger.debug(f'要打开截图保存路径：{jpg_dir}')
-    if not jpg_dir or not os.path.exists(jpg_dir):
-        gui_queue.put(("show_warning", ("提示", "截图目录不存在!")))
-        return
-    try:
-        if os.name == 'nt':  # windows
-            os.startfile(jpg_dir)
-        else:
-            import subprocess
-            subprocess.run(['xdg-open' if os.name == 'posix' else 'open', jpg_dir])
-    except Exception as e:
-        gui_queue.put(("show_error", ("打开失败", f"无法打开目录：{str(e)}")))
 
 
 root = tk.Tk()
@@ -492,7 +333,7 @@ open_button = tk.Button(root, text='打开截图路径')
 open_button.grid(row=8, column=2, padx=5, pady=10, sticky='ew')
 
 # 清空日志按钮
-clear_button = tk.Button(root, text='清空日志', command=clear_log)
+clear_button = tk.Button(root, text='清空日志', command=console.clear_log)
 clear_button.grid(row=8, column=3, padx=5, pady=10, sticky='ew')
 
 if __name__ == '__main__':
