@@ -31,7 +31,13 @@ def capture_pool(csv_file, *args, **kwargs):
         os.makedirs(fail_log_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    fail_log_file = os.path.join(fail_log_dir, f"failed_ips_{timestamp}.csv")
+    # 获取原CSV文件的文件名（不带路径和后缀）
+    # os.path.basename 获取完整文件名（含后缀），os.path.splitext 分离文件名和后缀
+    csv_filename = os.path.splitext(os.path.basename(csv_file))[0]
+    fail_log_file = os.path.join(fail_log_dir, f"{csv_filename}_{timestamp}.csv")
+
+    # 这里可以添加后续逻辑，比如创建失败日志文件、写入失败IP等
+    logger.debug(f"失败日志文件路径：{fail_log_file}")
 
     # 1、获取摄像头列表
     try:

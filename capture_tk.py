@@ -17,7 +17,6 @@ import tkinter as tk
 from tkinter import ttk, W, filedialog, DISABLED, NORMAL, messagebox
 from tkinter.ttk import Label
 
-
 # 导入抽离的工具类
 from lib.Camera import Camera
 from utils.capture_pool import capture_pool, onvif_pool
@@ -308,8 +307,8 @@ cap_dir_label = tk.Label(root, text='截图保存位置\n(留空为当前目录)
 cap_dir_label.grid(row=2, column=0, sticky=tk.W, padx=20)
 
 # 截图保存目录
-dir_entry = tk.Entry(root, textvariable=select_dir, width=30)
-dir_entry.grid(column=1, row=2, sticky=tk.W)
+dir_entry = tk.Entry(root, textvariable=select_dir, justify=tk.RIGHT, width=30)
+dir_entry.grid(row=2, column=1, sticky=tk.W)
 
 # 截图保存路径浏览按钮
 tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
