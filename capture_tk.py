@@ -107,22 +107,27 @@ def callbackFunc(event):
         csv_button['state'] = NORMAL
 
 
-def batch_capture_computer_cameras(folder_path=None, is_water_mark=True):
+def batch_capture_computer_cameras(folder_path=None,
+                                   is_water_mark=True,
+                                   max_index=3):
     """
     辅助函数：电脑所有可用摄像头批量截图
+    @param max_index:
     @param folder_path: 统一保存文件夹路径
     @param is_water_mark: 是否添加水印
     @return: dict 键：摄像头索引，值：截图结果（status, file_path/error_msg）
     """
     # 1. 枚举所有可用摄像头
-    available_cams = Camera.enum_computer_cameras()
-    if not available_cams:
-        logger.warning("未检测到可用电脑摄像头")
-        return {}
+    # available_cams = Camera.enum_computer_cameras()
+    # if not available_cams:
+    #     logger.warning("未检测到可用电脑摄像头")
+    #     return {}
 
     # 2. 遍历每个摄像头，分别截图
     capture_results = {}
-    for cam_index in available_cams:
+    found_camera = False
+
+    for cam_index in range(max_index):
         # 创建摄像头实例
         cam = Camera(
             camera_type="computer",
@@ -130,9 +135,29 @@ def batch_capture_computer_cameras(folder_path=None, is_water_mark=True):
             folder_path=folder_path,
             is_water_mark=is_water_mark
         )
-        # 执行截图
         result = cam.capture()
-        capture_results[cam_index] = result
+
+        status, info = result
+
+        # 成功
+        if status == 1:
+
+            found_camera = True
+
+            logger.info(
+                f"摄像头{cam_index}截图成功"
+            )
+
+            capture_results[cam_index] = result
+
+        else:
+
+            logger.debug(
+                f"摄像头{cam_index}不可用:{info}"
+            )
+
+    if not found_camera:
+        logger.warning("未检测到可用电脑摄像头")
 
     return capture_results
 
