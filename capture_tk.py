@@ -23,7 +23,14 @@ from utils.capture_pool import capture_pool, onvif_pool
 from utils.log_utils import LogWidget, gui_queue, is_capturing  # noqa: F401
 from utils.other_utils import open_folder, display_image
 
+
+# ====================== 日志配置：从配置文件加载 ======================
+# import logging.config
+import os
+os.makedirs("logs", exist_ok=True)
+logging.config.fileConfig('logging.conf')
 logger = logging.getLogger('camera_logger')
+# ====================================================================
 
 # 新增：常量定义区
 WINDOW_TITLE = "网络摄像头截图小工具"
