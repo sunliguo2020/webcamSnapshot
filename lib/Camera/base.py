@@ -269,51 +269,76 @@ class Camera:
     def watermark(self):
         """
         截图添加水印信息：图片的名字
+        左上角自适应水印
         :return:
         """
         if self.frame is None:
             raise Exception("截图失败或未打开摄像头，无法添加水印信息！")
         # 添加水印信息
-        text_watermark_x = 0
-        text_watermark_y = 200
+
         text = self.file_name.replace(".jpg", "")
-        font_face = cv2.FONT_HERSHEY_SIMPLEX  # 字体
-        line_type = cv2.LINE_AA
-        font_scale = 2  # 比例因子
-        thickness = 2  # 线的粗细
+        img_height, img_width = self.frame.shape[:2]
 
-        retval, base_line = cv2.getTextSize(
-            text, fontFace=font_face, fontScale=font_scale, thickness=thickness
-        )
+        # =========================
+        # 字体大小自适应
+        # =========================
 
-        img_width = self.frame.shape[1]
-        # 修复变量名拼写错误  img_hight -> img_height
-        img_height = self.frame.shape[0]
+        # 根据图片宽度动态调整
+        font_scale = max(img_width / 1200, 0.6)
 
-        text_width = retval[0]
+        thickness = max(int(font_scale * 2), 1)
 
-        # 如果文字的宽带大于图片的宽度，则缩小比例因子
-        if text_width > img_width:
-            font_scale = font_scale * (img_width / text_width) * 0.8
-            text_watermark_y = int(img_width * 0.1)  # 水印的新y坐标
-        # 修复水印Y轴写死缺陷，适配小分辨率截图
-        if text_watermark_y > img_height:
-            text_watermark_y = int(img_height * 0.1)
+        font_face = cv2.FONT_HERSHEY_SIMPLEX
 
-        # 声明文字的坐标位置和参数
-        text_position = (text_watermark_x, text_watermark_y)
-        font_color = (100, 255, 0)
-
-        # 在图像上绘制文字水印
-        self.frame = cv2.putText(
-            self.frame,
+        # 获取文字尺寸
+        (text_width, text_height), baseline = cv2.getTextSize(
             text,
-            text_position,
             font_face,
             font_scale,
-            font_color,
+            thickness
+        )
+
+        # =========================
+        # 左上角边距
+        # =========================
+
+        margin = int(img_width * 0.02)
+
+        x = margin
+
+        y = margin + text_height
+
+        # =========================
+        # 绘制黑色背景
+        # =========================
+
+        bg_x1 = x - 10
+        bg_y1 = y - text_height - 10
+
+        bg_x2 = x + text_width + 10
+        bg_y2 = y + baseline + 10
+
+        cv2.rectangle(
+            self.frame,
+            (bg_x1, bg_y1),
+            (bg_x2, bg_y2),
+            (0, 0, 0),
+            -1
+        )
+
+        # =========================
+        # 绘制文字
+        # =========================
+
+        cv2.putText(
+            self.frame,
+            text,
+            (x, y),
+            font_face,
+            font_scale,
+            (0, 255, 0),  # 绿色
             thickness,
-            line_type,
+            cv2.LINE_AA
         )
 
     @property
