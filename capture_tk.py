@@ -8,7 +8,11 @@
 pyinstaller -F -w -i cam_capture.ico capture_tk.py -n 摄像头批量截图
 
 """
-import logging
+
+import csv
+# ====================== 日志配置：从配置文件加载 ======================
+import logging.config
+import os
 import os.path
 import queue
 import threading
@@ -23,10 +27,6 @@ from utils.capture_pool import capture_pool, onvif_pool
 from utils.log_utils import LogWidget, gui_queue, is_capturing  # noqa: F401
 from utils.other_utils import open_folder, display_image
 
-
-# ====================== 日志配置：从配置文件加载 ======================
-# import logging.config
-import os
 os.makedirs("logs", exist_ok=True)
 logging.config.fileConfig('logging.conf')
 logger = logging.getLogger('camera_logger')
@@ -137,6 +137,130 @@ def batch_capture_computer_cameras(folder_path=None, is_water_mark=True):
     return capture_results
 
 
+def disable_widgets():
+    """
+    禁用csv_button
+    @return:
+    """
+    capture_button.config(state=DISABLED)
+
+    if numberChosen.get() != "电脑":
+        csv_button.config(state=DISABLED)
+
+
+def restore_widgets():
+    """
+    启动csv_button
+    @return:
+    """
+    capture_button.config(state=NORMAL)
+
+    # 只有非电脑摄像头时，才恢复csv_button状态
+
+    if numberChosen.get() != "电脑":
+        csv_button.config(state=NORMAL)
+
+
+def get_capture_config():
+    """
+    获取配置
+    @return:
+    """
+    return {
+        "client_type": numberChosen.get(),
+        "watermark": watermark_var.get(),
+        "csv_file": csv_entry.get(),
+        "save_base_dir": dir_entry.get()
+    }
+
+
+def validate_csv_file(csv_file):
+    """
+    检验csv文件的合法性
+    @param csv_file:
+    @return:
+    """
+    logger.info(f"开始校验csv文件：{csv_file}")
+    # 1、判断文件是否存在
+    if not os.path.isfile(csv_file):
+        logger.error('csv文件不存在')
+        raise FileNotFoundError("CSV文件不存在，请重新选择")
+    # 2、判断扩展名
+    if not csv_file.lower().endswith(".csv"):
+        logger.error("选择的不是csv文件")
+        raise ValueError("请选择csv文件")
+    # 3、校验头部
+    try:
+        with open(csv_file, newline='', encoding='utf-8-sig') as f:
+
+            reader = csv.DictReader(f)
+            # 空文件
+            if reader.fieldnames is None:
+                raise ValueError("CSV为空")
+
+            headers = [h.strip().lower() for h in reader.fieldnames]
+
+            logger.debug(f"csv表头：{headers}")
+
+            required_headers = {"ip", "password"}
+
+            if not required_headers.issubset(headers):
+                logger.error(
+                    "csv缺少必要字段：ip,password"
+                )
+                raise ValueError("CSV首行必须包含 ip,password")
+
+    except UnicodeDecodeError:
+        logger.exception("csv编码错误")
+        raise ValueError("CSV编码错误，请使用UTF-8")
+    except Exception:
+        logger.exception("读取csv文件失败")
+        raise
+
+    logger.info('csv文件校验通过')
+
+
+def build_save_dir(config):
+    """
+    构建保存文件的目录
+    截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
+    保存截图的文件夹默认是 csv文件名 + 当前日期,设置保存截图的文件夹的默认值
+    @param config:
+    @return:
+    """
+
+    client_type = config["client_type"]
+
+    csv_file = config["csv_file"]
+
+    base_dir = config["save_base_dir"]
+
+    basename = ""
+
+    if client_type != "电脑" and csv_file:
+        basename = os.path.splitext(
+            os.path.basename(csv_file)
+        )[0]
+
+    default_base_dir = (
+            base_dir or os.path.join(os.getcwd(), basename)
+    )
+
+    date_dir = time.strftime('%Y-%m-%d')
+
+    time_dir = time.strftime('%Y-%m-%d_%H-%M-%S')
+
+    save_dir = os.path.join(
+        default_base_dir,
+        date_dir,
+        time_dir
+    )
+
+    os.makedirs(save_dir, exist_ok=True)
+
+    return save_dir
+
+
 def start_cap():
     """
     开始采集按钮绑定的函数
@@ -149,8 +273,7 @@ def start_cap():
     is_capturing = True
 
     # 禁用关键按钮
-    capture_button.config(state=DISABLED)
-    csv_button.config(state=DISABLED)
+    disable_widgets()
 
     try:
         # 清空日志区
@@ -159,65 +282,27 @@ def start_cap():
         # 清空select_dir
         select_dir.set('')
 
+        # 获取配置
+        config = get_capture_config()
         # 获取摄像头类型
-        client_type = numberChosen.get()
+        client_type = config['client_type']
         logger.debug(f"采集的摄像头类型为：{client_type}")
 
         # 获取是否添加水印
-        watermark_flag = watermark_var.get()
+        watermark_flag = config['watermark']
         logger.debug(f"是否添加水印：{watermark_flag}")
 
         # 网络摄像头截图csv 文件的路径
-        csv_file = csv_entry.get()
+        csv_file = config["csv_file"]
 
         # 判断csv_file的合法性
         # 如果是电脑摄像头的话，不用考虑csv
         if client_type != '电脑':
-            # 判断文件是否存在和扩展名
-            if not os.path.isfile(csv_file) or os.path.splitext(csv_file)[-1] != ".csv":
-                logger.error(f'没有选择csv文件,请重新选择包含ip,password的文件!')
-                # 弹出错误窗口
-                gui_queue.put(("show_error", ("文件类型错误", "没有选择首行是ip,password的csv文件!")))
-                raise ValueError('请重新选择包含ip,password的文件!')
+            validate_csv_file(csv_file)
 
-            # 检查csv文件首行内容
-            try:
-                with open(csv_file, 'r', encoding='utf-8') as f:
-                    first_line = f.readline().strip()
-                    # 检查首行是否包含ip和password（不区分大小写）
-                    expected_headers = ['ip', 'password']
-                    actual_headers = [header.strip().lower() for header in first_line.split(',')]
-                if not all(header in actual_headers for header in expected_headers):
-                    logger.error(f'CSV文件格式不合法，首行必须包含ip和password!')
-                    # 弹出错误窗口
-                    # messagebox.showerror("错误", "CSV文件格式不合法，首行必须包含ip和password!")
-                    gui_queue.put(("show_error", (
-                        "错误", "CSV文件格式不合法，首行必须包含ip和password"
-                    )))
-                    raise ValueError('CSV文件格式不合法，首行必须包含ip和password!')
-            except ValueError as e:
-                # 这里捕获的是我们主动抛出的ValueError，不需要再次弹出窗口
-                # 直接重新抛出异常即可
-                raise e
-            except Exception as e:
-                logger.error(f'读取CSV文件失败: {str(e)}')
-                # 弹出错误窗口
-                gui_queue.put(("show_error", ("错误", f"读取CSV文件失败: {str(e)}")))
-                raise ValueError(f'读取CSV文件失败: {str(e)}')
+        save_dir = build_save_dir(config)
 
-        # 截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
-        basename = ""
-        if client_type != "电脑" and csv_file:
-            basename = os.path.splitext(os.path.basename(csv_file))[0]
-        default_base_dir = dir_entry.get() or os.path.join(os.getcwd(), basename)
-        time_dir1 = time.strftime('%Y-%m-%d', time.localtime())
-        time_dir2 = time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime())
-        save_dir = os.path.join(default_base_dir, time_dir1, time_dir2)
-
-        # 保存截图的文件夹默认是 csv文件名 + 当前日期,设置保存截图的文件夹的默认值
         select_dir.set(save_dir)
-
-        os.makedirs(save_dir, exist_ok=True)
 
         # 生成打开该路径的按钮
         open_button.configure(command=lambda: open_folder(save_dir, logger, gui_queue))
@@ -254,14 +339,15 @@ def start_cap():
     except Exception as e:
         logger.error(f"截图任务异常:{str(e)}")
         # 异常时也要确保状态充值
+        gui_queue.put((
+            "show_error",
+            ("错误",str(e))
+        ))
     finally:
         # 恢复状态:标记为未在截图
         is_capturing = False
         # 恢复按钮状态
-        capture_button.config(state=NORMAL)
-        # 只有非电脑摄像头时，才恢复csv_button状态
-        if numberChosen.get() != "电脑":
-            csv_button.config(state=NORMAL)
+        restore_widgets()
 
 
 root = tk.Tk()
@@ -324,13 +410,21 @@ tk.Button(root, text="浏览", command=select_folder).grid(row=2, column=3)
 watermark_check = tk.Checkbutton(root, text="添加水印", variable=watermark_var, font='微软雅黑 12')
 watermark_check.grid(row=3, column=0, sticky=tk.W, padx=20)
 
+
 # 采集按钮
+def run_capture_thread():
+    threading.Thread(
+        target=start_cap,
+        daemon=True
+    ).start()
+
+
 capture_button = tk.Button(root,
                            text='开始截图',
                            font='宋体 12',
                            bg='lightblue',
                            width=20,
-                           command=lambda: threading.Thread(target=start_cap).start())
+                           command=run_capture_thread)
 #
 capture_button.grid(row=8, column=0, columnspan=2, padx=(2, 10), pady=10, sticky=tk.W)
 
