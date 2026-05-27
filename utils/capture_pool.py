@@ -102,62 +102,39 @@ def capture_pool(csv_file, *args, **kwargs):
         'fail_log_file': fail_log_file  # 失败IP记录文件路径
     }
 
-    # 2、创建线程池
+    # 2、逐个执行截图，支持暂停
     try:
-        with ThreadPoolExecutor() as pool:
-            futures = []
-            for caminfo in cam_list:
-                # 检查暂停标志
-                while is_paused:
-                    logger.info("截图任务已暂停，等待继续...")
-                    pause_event.wait()  # 等待继续信号
-                    if not is_paused:
-                        logger.info("截图任务继续执行")
-                        break
-                    time.sleep(0.5)
+        for caminfo in cam_list:
+            # 检查暂停标志 - 暂停时等待
+            while is_paused:
+                logger.info("⏸ 截图任务已暂停，点击'继续'恢复...")
+                pause_event.wait()  # 等待继续信号
+                if not is_paused:
+                    logger.info("▶ 截图任务继续执行")
+                    break
+                time.sleep(0.5)
 
-                try:
-                    # 为每个任务创建可追踪的上下文
-                    task_info = {
-                        'ip': caminfo.get('ip', 'unknown'),
-                        'kwargs': kwargs,
-                        'caminfo': caminfo
-                    }
-                    future = pool.submit(
-                        lambda x: Camera(**x['caminfo'], **x['kwargs']).capture(),
-                        task_info
-                    )
-                    future.task_info = task_info  # 附加任务信息
-                    futures.append(future)
-                except Exception as e:
+            try:
+                ip = caminfo.get('ip', 'unknown')
+                logger.debug(f"开始截图 IP: {ip}")
+                result = Camera(**caminfo, **kwargs).capture()
+                last_results.append(result)
+
+                if result[0] == 1:
+                    statistics['success'] += 1
+                    logger.info(f"截图成功 IP: {ip}")
+                else:
                     statistics['failed'] += 1
-                    ip = caminfo.get('ip', 'unknown')
-                    error_msg = str(e)
+                    error_msg = result[1] if len(result) > 1 else 'unknown error'
                     statistics['failed_ips'].append((ip, error_msg))
-                    logger.error(f"任务提交失败 IP: {ip} - {error_msg}")
+                    logger.warning(f"截图失败 IP: {ip} - {error_msg}")
 
-            # 处理结果
-            for future in as_completed(futures):
-                try:
-                    result = future.result()
-                    last_results.append(result)
-
-                    ip = future.task_info['ip']
-                    if result[0] == 1:  # 假设result[0]为1表示成功
-                        statistics['success'] += 1
-                        logger.info(f"截图成功 IP: {ip}")
-                    else:
-                        statistics['failed'] += 1
-                        error_msg = result[1] if len(result) > 1 else 'unknown error'
-                        statistics['failed_ips'].append((ip, error_msg))
-                        logger.warning(f"截图失败 IP: {ip} - {error_msg}")
-
-                except Exception as e:
-                    statistics['failed'] += 1
-                    ip = getattr(future, 'task_info', {}).get('ip', 'unknown')
-                    error_msg = str(e)
-                    statistics['failed_ips'].append((ip, error_msg))
-                    logger.error(f"处理异常 IP: {ip} - {error_msg}", exc_info=True)
+            except Exception as e:
+                statistics['failed'] += 1
+                ip = caminfo.get('ip', 'unknown')
+                error_msg = str(e)
+                statistics['failed_ips'].append((ip, error_msg))
+                logger.error(f"截图异常 IP: {ip} - {error_msg}", exc_info=True)
 
     except Exception as e:
         logger.error(f"线程池运行异常: {e}", exc_info=True)
@@ -240,4 +217,3 @@ def onvif_pool(csv_file, *arg, **kwargs):
 if __name__ == '__main__':
     logger.debug('main')
     # capture_pool(r"../txt/ruizhi.csv", folder_path="2023-11-13")
-    onvif_pool('../dist/世纪凤华.csv')

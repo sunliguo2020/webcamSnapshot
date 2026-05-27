@@ -455,6 +455,7 @@ class CameraSnapshotApp:
         else:
             # 暂停
             is_paused = True
+            pause_event.clear()  # 清除事件，使 wait() 阻塞
             self.pause_button.config(text='▶ 继续', bg="#5CB85C")
             logger.info("截图任务已暂停，等待当前任务完成后暂停")
 
@@ -464,7 +465,7 @@ class CameraSnapshotApp:
         self.pause_button.config(state=NORMAL)
         if self.numberChosen.get() != "电脑":
             self.csv_button.config(state=DISABLED)
-            self.preview_button.config(state=DISABLED)
+            # 预览按钮保持可用
 
     def _restore_widgets(self):
         """恢复按钮状态"""
@@ -472,7 +473,6 @@ class CameraSnapshotApp:
         self.pause_button.config(state=DISABLED, text='⏸ 暂停', bg="#F0AD4E")
         if self.numberChosen.get() != "电脑":
             self.csv_button.config(state=NORMAL)
-            self.preview_button.config(state=NORMAL)
 
     def _get_capture_config(self):
         """获取截图配置"""
