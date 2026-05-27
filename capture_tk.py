@@ -9,7 +9,9 @@ pyinstaller -F -w -i cam_capture.ico capture_tk.py -n 摄像头批量截图
 
 """
 
+import csv
 import logging
+import os
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, DISABLED, NORMAL
@@ -64,6 +66,7 @@ class CameraSnapshotApp:
         # 控件引用
         self.csv_entry = None
         self.csv_button = None
+        self.preview_button = None
         self.capture_button = None
         self.open_button = None
         self.console = None
@@ -116,6 +119,109 @@ class CameraSnapshotApp:
         btn.grid(row=row, column=column, padx=5, pady=8, sticky="w")
         return btn
 
+    # ====================== CSV 预览功能 ======================
+
+    def _preview_csv(self):
+        """预览 CSV 文件内容"""
+        csv_path = self.select_path.get()
+        if not csv_path:
+            gui_queue.put(("show_warning", ("提示", "请先选择 CSV 文件")))
+            return
+
+        if not csv_path.lower().endswith('.csv'):
+            gui_queue.put(("show_warning", ("提示", "请选择 CSV 格式的文件")))
+            return
+
+        try:
+            # 读取 CSV 文件
+            with open(csv_path, 'r', encoding='utf-8-sig') as f:
+                reader = csv.reader(f)
+                rows = list(reader)
+
+            if not rows:
+                gui_queue.put(("show_warning", ("提示", "CSV 文件为空")))
+                return
+
+            headers = rows[0]
+            data_rows = rows[1:]
+
+            # 创建预览窗口
+            preview_win = tk.Toplevel(self.root)
+            preview_win.title(f"CSV 预览 - {os.path.basename(csv_path)}")
+            preview_win.geometry("600x400+350+250")
+            preview_win.configure(bg=self.COLOR_BG)
+            preview_win.resizable(True, True)
+
+            # 顶部信息
+            info_frame = tk.Frame(preview_win, bg=self.COLOR_BG)
+            info_frame.pack(fill="x", padx=10, pady=(10, 5))
+
+            tk.Label(
+                info_frame,
+                text=f"文件: {csv_path}",
+                font=("微软雅黑", 9),
+                bg=self.COLOR_BG,
+                fg="#555555",
+                anchor="w"
+            ).pack(fill="x")
+
+            tk.Label(
+                info_frame,
+                text=f"共 {len(data_rows)} 条记录，{len(headers)} 列",
+                font=("微软雅黑", 9, "bold"),
+                bg=self.COLOR_BG,
+                fg="#333333",
+                anchor="w"
+            ).pack(fill="x")
+
+            # 表格区域
+            tree_frame = tk.Frame(preview_win, bg=self.COLOR_FRAME_BG)
+            tree_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+            # 创建 Treeview
+            tree = ttk.Treeview(tree_frame, columns=headers, show="headings", height=15)
+
+            # 设置列标题和宽度
+            for col in headers:
+                tree.heading(col, text=col)
+                tree.column(col, width=120, minwidth=80, anchor="center")
+
+            # 插入数据行
+            for row in data_rows:
+                # 补齐行，确保列数一致
+                padded_row = row + [''] * (len(headers) - len(row))
+                tree.insert("", "end", values=padded_row[:len(headers)])
+
+            # 添加滚动条
+            v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+            h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=tree.xview)
+            tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+            tree.pack(side="left", fill="both", expand=True)
+            v_scrollbar.pack(side="right", fill="y")
+            h_scrollbar.pack(side="bottom", fill="x")
+
+            # 底部关闭按钮
+            btn_frame = tk.Frame(preview_win, bg=self.COLOR_BG)
+            btn_frame.pack(fill="x", padx=10, pady=10)
+
+            tk.Button(
+                btn_frame,
+                text="关闭",
+                font=self.FONT_BUTTON,
+                bg=self.COLOR_BUTTON,
+                fg=self.COLOR_BUTTON_TEXT,
+                relief="flat", bd=0,
+                cursor="hand2",
+                padx=20, pady=5,
+                command=preview_win.destroy
+            ).pack(side="right")
+
+        except UnicodeDecodeError:
+            gui_queue.put(("show_error", ("错误", "CSV 文件编码错误，请使用 UTF-8 编码")))
+        except Exception as e:
+            gui_queue.put(("show_error", ("错误", f"读取 CSV 文件失败: {str(e)}")))
+
     # ====================== GUI 控件创建 ======================
 
     def _create_widgets(self):
@@ -155,6 +261,11 @@ class CameraSnapshotApp:
         self.csv_button = self._create_button(
             self.root, "浏览", 3, 2, self._select_file,
             width=6
+        )
+        # 预览 CSV 按钮
+        self.preview_button = self._create_button(
+            self.root, "预览", 3, 3, self._preview_csv,
+            bg="#5BC0DE", width=6
         )
 
         # ---- 截图保存目录 ----
@@ -259,9 +370,11 @@ class CameraSnapshotApp:
         if self.numberChosen.get() == '电脑':
             self.csv_entry['state'] = 'disable'
             self.csv_button['state'] = DISABLED
+            self.preview_button['state'] = DISABLED
         else:
             self.csv_entry['state'] = NORMAL
             self.csv_button['state'] = NORMAL
+            self.preview_button['state'] = NORMAL
 
     def _select_file(self):
         """选择单个CSV文件"""
@@ -284,12 +397,14 @@ class CameraSnapshotApp:
         self.capture_button.config(state=DISABLED, bg="#A5D6A7")
         if self.numberChosen.get() != "电脑":
             self.csv_button.config(state=DISABLED)
+            self.preview_button.config(state=DISABLED)
 
     def _restore_widgets(self):
         """恢复按钮状态"""
         self.capture_button.config(state=NORMAL, bg=self.COLOR_CAPTURE_BG)
         if self.numberChosen.get() != "电脑":
             self.csv_button.config(state=NORMAL)
+            self.preview_button.config(state=NORMAL)
 
     def _get_capture_config(self):
         """获取截图配置"""
