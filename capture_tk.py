@@ -345,11 +345,6 @@ class CameraSnapshotApp:
             logger.info(f'截图保存路径：{self.save_dir}')
             logger.info(f'是否添加水印：{"是" if watermark_flag else "否"}')
 
-            gui_queue.put((
-                "show_info",
-                ("开始截图", f"已启动{client_type}摄像头截图，保存路径：{self.save_dir}")
-            ))
-
             # 电脑摄像头直接截图
             if client_type == '电脑':
                 result = batch_capture_computer_cameras(folder_path=self.save_dir)
