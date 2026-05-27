@@ -9,7 +9,8 @@
 """
 import logging
 import queue
-from tkinter import END, N, S,W,E
+import threading
+from tkinter import END, N, S, W, E
 from tkinter.scrolledtext import ScrolledText
 
 
@@ -17,6 +18,10 @@ from tkinter.scrolledtext import ScrolledText
 gui_queue = queue.Queue()
 # 全局状态变量  全局截图状态标记
 is_capturing = False
+# 暂停标志
+is_paused = False
+pause_event = threading.Event()
+pause_event.set()  # 默认不暂停
 
 
 def poll_gui_queue(root):

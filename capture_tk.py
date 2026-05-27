@@ -20,7 +20,7 @@ from tkinter.ttk import Label
 # 导入抽离的工具类
 from utils.capture_pool import capture_pool, onvif_pool, batch_capture_computer_cameras
 from utils.log_config import setup_logging
-from utils.log_utils import LogWidget, gui_queue, is_capturing, poll_gui_queue  # noqa: F401
+from utils.log_utils import LogWidget, gui_queue, is_capturing, is_paused, pause_event, poll_gui_queue  # noqa: F401
 from utils.other_utils import open_folder, display_image, build_save_dir
 from utils.tool import validate_csv_file
 
@@ -68,6 +68,7 @@ class CameraSnapshotApp:
         self.csv_button = None
         self.preview_button = None
         self.capture_button = None
+        self.pause_button = None
         self.open_button = None
         self.console = None
         self.numberChosen = None
@@ -332,6 +333,21 @@ class CameraSnapshotApp:
         )
         self.capture_button.pack(side="left", padx=(0, 10))
 
+        # 暂停/继续按钮
+        self.pause_button = tk.Button(
+            button_frame,
+            text='⏸ 暂停',
+            font=self.FONT_BUTTON,
+            bg="#F0AD4E",
+            fg="white",
+            relief="flat", bd=0,
+            cursor="hand2",
+            padx=15, pady=8,
+            state=DISABLED,
+            command=self._toggle_pause
+        )
+        self.pause_button.pack(side="left", padx=5)
+
         # 打开截图目录按钮
         self.open_button = tk.Button(
             button_frame,
@@ -392,9 +408,25 @@ class CameraSnapshotApp:
 
     # ====================== 控件状态管理 ======================
 
+    def _toggle_pause(self):
+        """切换暂停/继续状态"""
+        global is_paused
+        if is_paused:
+            # 继续
+            is_paused = False
+            pause_event.set()
+            self.pause_button.config(text='⏸ 暂停', bg="#F0AD4E")
+            logger.info("截图任务已恢复")
+        else:
+            # 暂停
+            is_paused = True
+            self.pause_button.config(text='▶ 继续', bg="#5CB85C")
+            logger.info("截图任务已暂停，等待当前任务完成后暂停")
+
     def _disable_widgets(self):
         """禁用关键按钮"""
         self.capture_button.config(state=DISABLED, bg="#A5D6A7")
+        self.pause_button.config(state=NORMAL)
         if self.numberChosen.get() != "电脑":
             self.csv_button.config(state=DISABLED)
             self.preview_button.config(state=DISABLED)
@@ -402,6 +434,7 @@ class CameraSnapshotApp:
     def _restore_widgets(self):
         """恢复按钮状态"""
         self.capture_button.config(state=NORMAL, bg=self.COLOR_CAPTURE_BG)
+        self.pause_button.config(state=DISABLED, text='⏸ 暂停', bg="#F0AD4E")
         if self.numberChosen.get() != "电脑":
             self.csv_button.config(state=NORMAL)
             self.preview_button.config(state=NORMAL)

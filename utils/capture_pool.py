@@ -7,11 +7,13 @@
 import csv
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from lib.Camera import Camera
 from lib.OnvifClient import OnvifClient
+from utils.log_utils import is_paused, pause_event
 from utils.tool import get_cam_list
 
 logger = logging.getLogger('camera_logger')
@@ -105,6 +107,15 @@ def capture_pool(csv_file, *args, **kwargs):
         with ThreadPoolExecutor() as pool:
             futures = []
             for caminfo in cam_list:
+                # 检查暂停标志
+                while is_paused:
+                    logger.info("截图任务已暂停，等待继续...")
+                    pause_event.wait()  # 等待继续信号
+                    if not is_paused:
+                        logger.info("截图任务继续执行")
+                        break
+                    time.sleep(0.5)
+
                 try:
                     # 为每个任务创建可追踪的上下文
                     task_info = {
