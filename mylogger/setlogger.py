@@ -8,18 +8,25 @@
 import logging
 import logging.config
 import os
+import sys
 
 
 def configure_logger():
     """
     配置日志
+    注意：此函数可能在 setup_logging() 之前被调用，
+    但最终日志路径由 utils/log_config.py 中的 setup_logging() 统一管理。
+    这里仅做基础配置，避免创建多余的 log 目录。
 
     @return:
     """
-    # 检查日志文件是否存在，不存在则创建
-    # 获取项目根目录
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    log_file = os.path.join(project_root, 'log', 'camera.log')
+    # 使用 exe 所在目录（或当前工作目录）的 logs/ 目录
+    if getattr(sys, 'frozen', False):
+        app_dir = os.path.dirname(sys.executable)
+    else:
+        app_dir = os.getcwd()
+
+    log_file = os.path.join(app_dir, 'logs', 'camera.log')
 
     if not os.path.isfile(log_file):
         dir_name = os.path.dirname(log_file)
