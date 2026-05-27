@@ -77,7 +77,7 @@ class LogWidget:
         self.frame = frame
         # Create a ScrolledText wdiget
         self.scrolled_text = ScrolledText(frame, state='disabled', height=20)
-        self.scrolled_text.grid(row=10, column=0, sticky=(N, S, W, E))
+        self.scrolled_text.pack(fill="both", expand=True)
         self.scrolled_text.configure(font=('宋体', '10'))
         self.scrolled_text.tag_config('INFO', foreground='black')
         self.scrolled_text.tag_config('DEBUG', foreground='gray')
