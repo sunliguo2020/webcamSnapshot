@@ -179,19 +179,32 @@ class CameraSnapshotApp:
             tree_frame = tk.Frame(preview_win, bg=self.COLOR_FRAME_BG)
             tree_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-            # 创建 Treeview
-            tree = ttk.Treeview(tree_frame, columns=headers, show="headings", height=15)
+            # 创建 Treeview（带序号列）
+            columns = ['序号'] + headers
+            tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
 
             # 设置列标题和宽度
+            tree.heading('序号', text='序号')
+            tree.column('序号', width=50, minwidth=40, anchor="center")
             for col in headers:
                 tree.heading(col, text=col)
                 tree.column(col, width=120, minwidth=80, anchor="center")
 
-            # 插入数据行
-            for row in data_rows:
+            # 插入数据行（带序号）
+            for idx, row in enumerate(data_rows, 1):
                 # 补齐行，确保列数一致
                 padded_row = row + [''] * (len(headers) - len(row))
-                tree.insert("", "end", values=padded_row[:len(headers)])
+                tree.insert("", "end", values=[idx] + padded_row[:len(headers)])
+
+            # 设置单元格边框样式（通过 tag 实现）
+            tree.tag_configure('cell', font=('微软雅黑', 9))
+            # 设置行高
+            style = ttk.Style()
+            style.configure("Treeview", rowheight=25, font=('微软雅黑', 9))
+            style.configure("Treeview.Heading", font=('微软雅黑', 9, 'bold'))
+            # 设置网格线（边框）
+            style.configure("Treeview", borderwidth=1, relief="solid")
+            style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])
 
             # 添加滚动条
             v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
