@@ -15,6 +15,7 @@ import logging.config
 import os
 import os.path
 import queue
+import sys
 import threading
 import time
 import tkinter as tk
@@ -28,7 +29,30 @@ from utils.log_utils import LogWidget, gui_queue, is_capturing  # noqa: F401
 from utils.other_utils import open_folder, display_image
 
 os.makedirs("logs", exist_ok=True)
-logging.config.fileConfig('logging.conf')
+
+# 判断是否在 PyInstaller 打包的环境中运行
+if getattr(sys, 'frozen', False):
+    # 如果是打包后的 exe，配置文件在 _MEIPASS 目录下
+    base_path = sys._MEIPASS
+else:
+    # 如果是开发环境，配置文件在当前目录
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+# 如果 logger 尚未配置（例如从 main.py 直接运行时已由 setlogger 配置），则从文件配置
+if not logging.getLogger('camera_logger').handlers:
+    log_config_path = os.path.join(base_path, 'logging.conf')
+    if os.path.exists(log_config_path):
+        logging.config.fileConfig(log_config_path)
+    else:
+        # 如果 logging.conf 不存在，使用基本配置
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler(),
+                logging.FileHandler('logs/camera.log', encoding='utf-8')
+            ]
+        )
 logger = logging.getLogger('camera_logger')
 # ====================================================================
 
