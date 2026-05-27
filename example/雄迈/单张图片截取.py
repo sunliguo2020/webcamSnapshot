@@ -53,7 +53,7 @@ def xm_capture(ip=None, folder=None):
 
 
 if __name__ == '__main__':
-    csv_file = '../../txt/世纪东城-雄迈.csv'
+    csv_file = r'D:\github\webcamSnapshot\txt\世纪东城-雄迈.csv'
 
     for item in get_cam_list(csv_file):
         with ThreadPoolExecutor(max_workers=5) as executor:

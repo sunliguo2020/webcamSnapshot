@@ -65,4 +65,4 @@ def capture_from_csv(csv_file, *args, **kwargs):
 
 
 if __name__ == '__main__':
-    capture_from_csv('../txt/ruizhi.csv')
+    capture_from_csv('../dist/世纪凤华.csv')

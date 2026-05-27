@@ -164,14 +164,16 @@ class Camera:
         logger.debug(f"ip:{cam_desc}开始截图")
         # 检查摄像头是否可用
         # 提前统一赋值，覆盖所有分支
-        if not self.check_camera():
-            if self.camera_type == "computer":
-                err_msg = f"{cam_desc}不可用（未连接或者被占用）"
-            else:
-                err_msg = f"{cam_desc} 554端口不可达/摄像头离线"
+        if self.camera_type != "computer":
 
-            logger.debug(err_msg)
-            return -1, err_msg
+            if not self.check_camera():
+                err_msg = (
+                    f"{cam_desc} 554端口不可达/摄像头离线"
+                )
+
+                logger.debug(err_msg)
+
+                return -1, err_msg
 
         # 赋值完整路径，确保万无一失
         if self.file_full_path is None:
