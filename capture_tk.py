@@ -506,6 +506,11 @@ class CameraSnapshotApp:
             watermark_flag = config['watermark']
             csv_file = config["csv_file"]
 
+            # 校验摄像头类型
+            if not client_type:
+                gui_queue.put(("show_warning", ("提示", "请选择摄像头类型")))
+                return
+
             logger.debug(f"采集的摄像头类型为：{client_type}")
             logger.debug(f"是否添加水印：{watermark_flag}")
 
