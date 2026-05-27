@@ -168,6 +168,53 @@ def get_cam_list(csv_file: str, required_fields: Optional[list] = None) -> Itera
         raise
 
 
+def validate_csv_file(csv_file):
+    """
+    检验csv文件的合法性
+    @param csv_file: csv文件路径
+    @return: None
+    @raises FileNotFoundError: 文件不存在
+    @raises ValueError: 文件格式错误
+    """
+    logger.info(f"开始校验csv文件：{csv_file}")
+    # 1、判断文件是否存在
+    if not os.path.isfile(csv_file):
+        logger.error('csv文件不存在')
+        raise FileNotFoundError("CSV文件不存在，请重新选择")
+    # 2、判断扩展名
+    if not csv_file.lower().endswith(".csv"):
+        logger.error("选择的不是csv文件")
+        raise ValueError("请选择csv文件")
+    # 3、校验头部
+    try:
+        with open(csv_file, newline='', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            # 空文件
+            if reader.fieldnames is None:
+                raise ValueError("CSV为空")
+
+            headers = [h.strip().lower() for h in reader.fieldnames]
+
+            logger.debug(f"csv表头：{headers}")
+
+            required_headers = {"ip", "password"}
+
+            if not required_headers.issubset(headers):
+                logger.error(
+                    "csv缺少必要字段：ip,password"
+                )
+                raise ValueError("CSV首行必须包含 ip,password")
+
+    except UnicodeDecodeError:
+        logger.exception("csv编码错误")
+        raise ValueError("CSV编码错误，请使用UTF-8")
+    except Exception:
+        logger.exception("读取csv文件失败")
+        raise
+
+    logger.info('csv文件校验通过')
+
+
 if __name__ == '__main__':
     for item in get_cam_list(r'd:/寿光泽润.csv'):
         print(item)

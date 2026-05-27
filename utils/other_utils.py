@@ -7,6 +7,7 @@
 通用工具方法抽离 - 图片预览、打开文件夹、路径处理等
 """
 import os
+import time
 import tkinter as tk
 
 from PIL import ImageTk, Image
@@ -74,3 +75,38 @@ def open_folder(jpg_dir, logger, gui_queue):
             subprocess.run(['xdg-open' if os.name == 'posix' else 'open', jpg_dir])
     except Exception as e:
         gui_queue.put(("show_error", ("打开失败", f"无法打开目录：{str(e)}")))
+
+
+def build_save_dir(client_type, csv_file, base_dir):
+    """
+    构建保存文件的目录
+    截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
+    保存截图的文件夹默认是 csv文件名 + 当前日期,设置保存截图的文件夹的默认值
+    @param client_type: 摄像头类型（"电脑" 或其他）
+    @param csv_file: CSV文件路径
+    @param base_dir: 用户指定的基础目录（可为空）
+    @return: 完整的保存目录路径
+    """
+    basename = ""
+
+    if client_type != "电脑" and csv_file:
+        basename = os.path.splitext(
+            os.path.basename(csv_file)
+        )[0]
+
+    default_base_dir = (
+        base_dir or os.path.join(os.getcwd(), basename)
+    )
+
+    date_dir = time.strftime('%Y-%m-%d')
+    time_dir = time.strftime('%Y-%m-%d_%H-%M-%S')
+
+    save_dir = os.path.join(
+        default_base_dir,
+        date_dir,
+        time_dir
+    )
+
+    os.makedirs(save_dir, exist_ok=True)
+
+    return save_dir

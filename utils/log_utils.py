@@ -19,6 +19,31 @@ gui_queue = queue.Queue()
 is_capturing = False
 
 
+def poll_gui_queue(root):
+    """
+    GUI队列轮询，处理子线程的GUI操作请求（弹窗、图片显示等）
+    需要在主线程中定期调用（通常通过 root.after()）
+    @param root: tkinter 主窗口
+    """
+    from tkinter import messagebox
+    from utils.other_utils import display_image
+
+    while True:
+        try:
+            task, args = gui_queue.get(block=False)
+            if task == "show_error":
+                messagebox.showerror(*args)
+            elif task == "show_info":
+                messagebox.showinfo(*args)
+            elif task == "show_warning":
+                messagebox.showwarning(*args)
+            elif task == "display_image":
+                display_image(*args)
+        except queue.Empty:
+            break
+    root.after(100, lambda: poll_gui_queue(root))
+
+
 class QueueHandler(logging.Handler):
     """
     类将日志记录发送到队列
@@ -106,6 +131,3 @@ class LogWidget:
                 self.log_queue.get(block=False)
             except queue.Empty:
                 break
-
-
-

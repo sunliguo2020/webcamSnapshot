@@ -17,6 +17,42 @@ from utils.tool import get_cam_list
 logger = logging.getLogger('camera_logger')
 
 
+def batch_capture_computer_cameras(folder_path=None,
+                                   is_water_mark=True,
+                                   max_index=3):
+    """
+    电脑所有可用摄像头批量截图
+    @param folder_path: 统一保存文件夹路径
+    @param is_water_mark: 是否添加水印
+    @param max_index: 最大摄像头索引
+    @return: dict 键：摄像头索引，值：截图结果（status, file_path/error_msg）
+    """
+    capture_results = {}
+    found_camera = False
+
+    for cam_index in range(max_index):
+        cam = Camera(
+            camera_type="computer",
+            cam_index=cam_index,
+            folder_path=folder_path,
+            is_water_mark=is_water_mark
+        )
+        result = cam.capture()
+        status, info = result
+
+        if status == 1:
+            found_camera = True
+            logger.info(f"摄像头{cam_index}截图成功")
+            capture_results[cam_index] = result
+        else:
+            logger.debug(f"摄像头{cam_index}不可用:{info}")
+
+    if not found_camera:
+        logger.warning("未检测到可用电脑摄像头")
+
+    return capture_results
+
+
 def capture_pool(csv_file, *args, **kwargs):
     """
     使用线程池截图,摄像头类型 和 保存路径
