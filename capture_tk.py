@@ -175,45 +175,67 @@ class CameraSnapshotApp:
                 anchor="w"
             ).pack(fill="x")
 
-            # 表格区域
+            # 表格区域 - 使用 Canvas 绘制带边框的表格
             tree_frame = tk.Frame(preview_win, bg=self.COLOR_FRAME_BG)
             tree_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-            # 创建 Treeview（带序号列）
-            columns = ['序号'] + headers
-            tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
+            # 创建 Canvas 和滚动条
+            canvas = tk.Canvas(tree_frame, bg='white', highlightthickness=0)
+            v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=canvas.yview)
+            h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=canvas.xview)
+            canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
 
-            # 设置列标题和宽度
-            tree.heading('序号', text='序号')
-            tree.column('序号', width=50, minwidth=40, anchor="center")
-            for col in headers:
-                tree.heading(col, text=col)
-                tree.column(col, width=120, minwidth=80, anchor="center")
-
-            # 插入数据行（带序号）
-            for idx, row in enumerate(data_rows, 1):
-                # 补齐行，确保列数一致
-                padded_row = row + [''] * (len(headers) - len(row))
-                tree.insert("", "end", values=[idx] + padded_row[:len(headers)])
-
-            # 设置单元格边框样式（通过 tag 实现）
-            tree.tag_configure('cell', font=('微软雅黑', 9))
-            # 设置行高
-            style = ttk.Style()
-            style.configure("Treeview", rowheight=25, font=('微软雅黑', 9))
-            style.configure("Treeview.Heading", font=('微软雅黑', 9, 'bold'))
-            # 设置网格线（边框）
-            style.configure("Treeview", borderwidth=1, relief="solid")
-            style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])
-
-            # 添加滚动条
-            v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
-            h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=tree.xview)
-            tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
-
-            tree.pack(side="left", fill="both", expand=True)
             v_scrollbar.pack(side="right", fill="y")
             h_scrollbar.pack(side="bottom", fill="x")
+            canvas.pack(side="left", fill="both", expand=True)
+
+            # 计算列宽 - 根据数据内容动态调整
+            col_widths = [45]  # 序号列
+            for ci, col in enumerate(headers):
+                # 计算该列所有数据的最大长度
+                max_len = len(col)
+                for row in data_rows:
+                    if ci < len(row):
+                        # 中文字符算2个宽度
+                        cell_len = sum(2 if ord(c) > 127 else 1 for c in row[ci])
+                        max_len = max(max_len, cell_len)
+                col_widths.append(max(70, max_len * 7 + 24))
+            total_width = sum(col_widths)
+            row_height = 26
+
+            # 计算画布大小
+            canvas_width = total_width + 4
+            canvas_height = (len(data_rows) + 1) * row_height + 4
+            canvas.config(scrollregion=(0, 0, canvas_width, canvas_height))
+
+            # 绘制表头
+            x = 2
+            y = 2
+            for ci, (col_name, cw) in enumerate(zip(['序号'] + headers, col_widths)):
+                canvas.create_rectangle(x, y, x + cw, y + row_height,
+                                        outline='#999999', fill='#E8E8E8')
+                canvas.create_text(x + cw // 2, y + row_height // 2,
+                                   text=col_name, font=('微软雅黑', 9, 'bold'),
+                                   anchor='center')
+                x += cw
+
+            # 绘制数据行
+            y += row_height
+            for ri, row in enumerate(data_rows):
+                x = 2
+                # 补齐行
+                padded_row = row + [''] * (len(headers) - len(row))
+                values = [str(ri + 1)] + padded_row[:len(headers)]
+                for ci, (val, cw) in enumerate(zip(values, col_widths)):
+                    # 绘制单元格边框（留1像素内边距避免重叠）
+                    canvas.create_rectangle(x + 1, y + 1, x + cw - 1, y + row_height - 1,
+                                            outline='#CCCCCC', fill='white')
+                    # 文字居中显示
+                    canvas.create_text(x + cw // 2, y + row_height // 2,
+                                       text=val, font=('微软雅黑', 9),
+                                       anchor='center')
+                    x += cw
+                y += row_height
 
             # 底部关闭按钮
             btn_frame = tk.Frame(preview_win, bg=self.COLOR_BG)
