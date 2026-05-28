@@ -5,7 +5,6 @@
 @Created on: 2023-05-19 18:13
 摄像头批量截图的图形界面
 
-pyinstaller -F -w -i cam_capture.ico capture_tk.py -n 摄像头批量截图
 
 """
 
@@ -15,7 +14,7 @@ import os
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, DISABLED, NORMAL
-from tkinter.ttk import Label
+from PIL import Image, ImageTk
 
 # 导入抽离的工具类
 from utils.capture_pool import capture_pool, onvif_pool, batch_capture_computer_cameras
@@ -32,7 +31,7 @@ class CameraSnapshotApp:
     """摄像头批量截图图形界面主类"""
 
     WINDOW_TITLE = "网络摄像头截图小工具"
-    WINDOW_GEOMETRY = "720x520+300+200"
+    WINDOW_GEOMETRY = "500x600+200+150"
     CAMERA_TYPES = ("海康", "大华", "onvif", "电脑")
 
     # 字体定义
@@ -62,6 +61,8 @@ class CameraSnapshotApp:
         self.select_path = tk.StringVar()
         self.select_dir = tk.StringVar()
         self.watermark_var = tk.BooleanVar(value=True)
+        self.temp_ip = tk.StringVar()
+        self.temp_password = tk.StringVar()
 
         # 控件引用
         self.csv_entry = None
@@ -90,35 +91,66 @@ class CameraSnapshotApp:
         label.grid(row=row, column=column, sticky="w", padx=(20, 5), pady=8)
         return label
 
-    def _create_entry(self, parent, textvariable, row, column, width=35):
-        """创建统一风格的输入框"""
-        entry = tk.Entry(
-            parent, textvariable=textvariable,
-            font=("微软雅黑", 9), width=width,
-            relief="solid", bd=1
-        )
-        entry.grid(row=row, column=column, sticky="ew", padx=5, pady=8)
-        return entry
+    # ====================== 预览图片弹窗 ======================
 
-    def _create_button(self, parent, text, row, column, command,
-                       bg=None, fg=None, font=None, width=None, **kwargs):
-        """创建统一风格的按钮"""
-        if bg is None:
-            bg = self.COLOR_BUTTON
-        if fg is None:
-            fg = self.COLOR_BUTTON_TEXT
-        if font is None:
-            font = self.FONT_BUTTON
+    def show_preview_image(self, image_path):
+        """在新窗口中显示截图预览"""
+        try:
+            img = Image.open(image_path)
+            # 计算弹窗大小，最大 800x600
+            win_width = min(img.width + 40, 800)
+            win_height = min(img.height + 80, 600)
 
-        btn = tk.Button(
-            parent, text=text, command=command,
-            font=font, bg=bg, fg=fg,
-            relief="flat", bd=0,
-            cursor="hand2", padx=12, pady=3,
-            **kwargs
-        )
-        btn.grid(row=row, column=column, padx=5, pady=8, sticky="w")
-        return btn
+            preview_win = tk.Toplevel(self.root)
+            preview_win.title(f"截图预览 - {os.path.basename(image_path)}")
+            preview_win.geometry(f"{win_width}x{win_height}+400+200")
+            preview_win.configure(bg=self.COLOR_BG)
+            preview_win.resizable(True, True)
+
+            # 图片显示区域
+            canvas_frame = tk.Frame(preview_win, bg=self.COLOR_FRAME_BG,
+                                    relief="solid", bd=1)
+            canvas_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+            canvas = tk.Canvas(canvas_frame, bg="#FAFAFA",
+                               highlightthickness=0)
+            canvas.pack(fill="both", expand=True, padx=5, pady=5)
+
+            # 等比例缩放显示
+            display_width = win_width - 60
+            display_height = win_height - 120
+            img_copy = img.copy()
+            img_copy.thumbnail((display_width, display_height),
+                               Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(img_copy)
+            canvas.delete("all")
+            x = (display_width - img_copy.width) // 2
+            y = (display_height - img_copy.height) // 2
+            canvas.create_image(max(x, 0), max(y, 0), anchor="nw",
+                                image=photo)
+            canvas.image = photo  # 保留引用
+
+            # 底部信息
+            info_frame = tk.Frame(preview_win, bg=self.COLOR_BG)
+            info_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+            tk.Label(
+                info_frame,
+                text=f"{os.path.basename(image_path)}  ({img.width}x{img.height})",
+                font=("微软雅黑", 9), bg=self.COLOR_BG, fg="#555555"
+            ).pack(side="left")
+
+            tk.Button(
+                info_frame, text="关闭",
+                font=self.FONT_BUTTON,
+                bg=self.COLOR_BUTTON, fg=self.COLOR_BUTTON_TEXT,
+                relief="flat", bd=0, cursor="hand2",
+                padx=15, pady=3,
+                command=preview_win.destroy
+            ).pack(side="right")
+
+        except Exception as e:
+            logger.error(f"预览图片失败: {e}")
 
     # ====================== CSV 预览功能 ======================
 
@@ -258,6 +290,49 @@ class CameraSnapshotApp:
         except Exception as e:
             gui_queue.put(("show_error", ("错误", f"读取 CSV 文件失败: {str(e)}")))
 
+    # ====================== 临时截图 ======================
+
+    def _temp_capture(self):
+        """临时截图：对单个IP摄像头截图并显示"""
+        ip = self.temp_ip.get().strip()
+        password = self.temp_password.get().strip()
+
+        if not ip:
+            gui_queue.put(("show_warning", ("提示", "请输入摄像头 IP 地址")))
+            return
+        if not password:
+            gui_queue.put(("show_warning", ("提示", "请输入摄像头密码")))
+            return
+
+        # 根据当前选择的摄像头类型确定 camera_type
+        client_type = self.numberChosen.get()
+        camera_type_map = {
+            "海康": "hik",
+            "大华": "dahua",
+            "onvif": "onvif",
+            "电脑": "computer"
+        }
+        camera_type = camera_type_map.get(client_type, "hik")
+
+        def do_capture():
+            try:
+                from lib.Camera import Camera
+                logger.info(f"临时截图 - IP: {ip}, 类型: {client_type}")
+                result = Camera(ip=ip, password=password, camera_type=camera_type).capture()
+                status, info = result
+                if status == 1:
+                    logger.info(f"临时截图成功: {info}")
+                    # 弹窗显示截图
+                    self.root.after(0, lambda: self.show_preview_image(info))
+                else:
+                    logger.warning(f"临时截图失败: {info}")
+                    gui_queue.put(("show_warning", ("截图失败", str(info))))
+            except Exception as e:
+                logger.error(f"临时截图异常: {e}")
+                gui_queue.put(("show_error", ("错误", str(e))))
+
+        threading.Thread(target=do_capture, daemon=True).start()
+
     # ====================== GUI 控件创建 ======================
 
     def _create_widgets(self):
@@ -268,72 +343,196 @@ class CameraSnapshotApp:
             font=("微软雅黑", 14, "bold"),
             bg=self.COLOR_BG, fg="#333333"
         )
-        title_label.grid(row=0, column=0, columnspan=5, pady=(15, 5), sticky="w")
+        title_label.pack(pady=(15, 5), padx=20, anchor="w")
         tk.Label(
             self.root, text="支持海康、大华、ONVIF协议摄像头及本地USB摄像头",
             font=("微软雅黑", 9), bg=self.COLOR_BG, fg="#888888"
-        ).grid(row=1, column=0, columnspan=5, pady=(0, 10), sticky="w", padx=20)
+        ).pack(pady=(0, 10), padx=20, anchor="w")
 
-        # ---- 摄像头类型 ----
-        self._create_label(self.root, "摄像头类型:", 2, 0)
+        # ==================== 中间内容区域 ====================
+        content_frame = tk.Frame(self.root, bg=self.COLOR_BG)
+        content_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # ---- 摄像头类型 + 水印复选框 ----
+        type_frame = tk.Frame(content_frame, bg=self.COLOR_BG)
+        type_frame.pack(fill="x", padx=10, pady=5, anchor="w")
+        tk.Label(
+            type_frame, text="摄像头类型:", font=self.FONT_LABEL,
+            bg=self.COLOR_BG, anchor="w"
+        ).pack(side="left")
         number = tk.StringVar()
         self.numberChosen = ttk.Combobox(
-            self.root, state='readonly', width=14, height=12,
+            type_frame, state='readonly', width=14, height=12,
             textvariable=number, font=("微软雅黑", 10)
         )
         self.numberChosen['values'] = self.CAMERA_TYPES
-        self.numberChosen.grid(column=1, row=2, sticky="w", padx=5, pady=8)
+        self.numberChosen.pack(side="left", padx=(5, 20))
         self.numberChosen.current(0)
         self.numberChosen.bind("<<ComboboxSelected>>", self._on_camera_type_changed)
 
-        # ---- CSV 文件路径 ----
-        self._create_label(
-            self.root, "CSV文件路径:", 3, 0,
-            fg=self.COLOR_LABEL_GREEN
-        )
-        self.csv_entry = self._create_entry(
-            self.root, self.select_path, 3, 1, width=38
-        )
-        self.csv_button = self._create_button(
-            self.root, "浏览", 3, 2, self._select_file,
-            width=6
-        )
-        # 预览 CSV 按钮
-        self.preview_button = self._create_button(
-            self.root, "预览", 3, 3, self._preview_csv,
-            bg="#5BC0DE", width=6
-        )
-
-        # ---- 截图保存目录 ----
-        self._create_label(self.root, "保存位置:", 4, 0)
-        dir_entry = self._create_entry(
-            self.root, self.select_dir, 4, 1, width=38
-        )
-        self._create_button(
-            self.root, "浏览", 4, 2, self._select_folder,
-            width=6
-        )
-
-        # ---- 水印复选框 ----
+        # 水印复选框
         watermark_check = tk.Checkbutton(
-            self.root, text="添加时间水印",
+            type_frame, text="添加时间水印",
             variable=self.watermark_var,
             font=self.FONT_LABEL,
             bg=self.COLOR_BG,
             activebackground=self.COLOR_BG,
             selectcolor="white"
         )
-        watermark_check.grid(row=5, column=0, columnspan=2, sticky="w", padx=20, pady=5)
+        watermark_check.pack(side="left")
+
+        # ---- CSV 文件路径 ----
+        csv_row = tk.Frame(content_frame, bg=self.COLOR_BG)
+        csv_row.pack(fill="x", padx=10, pady=5, anchor="w")
+        tk.Label(
+            csv_row, text="CSV文件路径:", font=self.FONT_LABEL,
+            bg=self.COLOR_BG, fg=self.COLOR_LABEL_GREEN, anchor="w",
+            width=12
+        ).pack(side="left")
+        self.csv_entry = tk.Entry(
+            csv_row, textvariable=self.select_path,
+            font=("微软雅黑", 9), width=30,
+            relief="solid", bd=1
+        )
+        self.csv_entry.pack(side="left", padx=(5, 2))
+        self.csv_button = tk.Button(
+            csv_row, text="浏览", command=self._select_file,
+            font=self.FONT_BUTTON, bg=self.COLOR_BUTTON, fg=self.COLOR_BUTTON_TEXT,
+            relief="flat", bd=0, cursor="hand2", padx=10, pady=3, width=5
+        )
+        self.csv_button.pack(side="left", padx=2)
+        self.preview_button = tk.Button(
+            csv_row, text="预览", command=self._preview_csv,
+            font=self.FONT_BUTTON, bg="#5BC0DE", fg="white",
+            relief="flat", bd=0, cursor="hand2", padx=10, pady=3, width=5
+        )
+        self.preview_button.pack(side="left", padx=2)
+
+        # ---- 截图保存目录 ----
+        dir_row = tk.Frame(content_frame, bg=self.COLOR_BG)
+        dir_row.pack(fill="x", padx=10, pady=5, anchor="w")
+        tk.Label(
+            dir_row, text="保存位置:", font=self.FONT_LABEL,
+            bg=self.COLOR_BG, anchor="w",
+            width=12
+        ).pack(side="left")
+        dir_entry = tk.Entry(
+            dir_row, textvariable=self.select_dir,
+            font=("微软雅黑", 9), width=30,
+            relief="solid", bd=1
+        )
+        dir_entry.pack(side="left", padx=(5, 2))
+        tk.Button(
+            dir_row, text="浏览", command=self._select_folder,
+            font=self.FONT_BUTTON, bg=self.COLOR_BUTTON, fg=self.COLOR_BUTTON_TEXT,
+            relief="flat", bd=0, cursor="hand2", padx=10, pady=3, width=5
+        ).pack(side="left", padx=2)
+
+        # ---- 临时截图区域 ----
+        temp_frame = tk.Frame(content_frame, bg=self.COLOR_BG)
+        temp_frame.pack(fill="x", padx=10, pady=5, anchor="w")
+
+        tk.Label(
+            temp_frame, text="临时截图:", font=self.FONT_LABEL,
+            bg=self.COLOR_BG, fg="#D9534F"
+        ).pack(side="left")
+
+        tk.Label(
+            temp_frame, text="IP:", font=("微软雅黑", 9),
+            bg=self.COLOR_BG
+        ).pack(side="left", padx=(10, 2))
+
+        tk.Entry(
+            temp_frame, textvariable=self.temp_ip,
+            font=("微软雅黑", 9), width=14,
+            relief="solid", bd=1
+        ).pack(side="left")
+
+        tk.Label(
+            temp_frame, text="密码:", font=("微软雅黑", 9),
+            bg=self.COLOR_BG
+        ).pack(side="left", padx=(10, 2))
+
+        tk.Entry(
+            temp_frame, textvariable=self.temp_password,
+            font=("微软雅黑", 9), width=14,
+            relief="solid", bd=1, show="*"
+        ).pack(side="left")
+
+        tk.Button(
+            temp_frame, text="截图", command=self._temp_capture,
+            font=self.FONT_BUTTON, bg="#D9534F", fg="white",
+            relief="flat", bd=0, cursor="hand2",
+            padx=10, pady=2
+        ).pack(side="left", padx=(10, 0))
 
         # ---- 分隔线 ----
-        separator = ttk.Separator(self.root, orient='horizontal')
-        separator.grid(row=6, column=0, columnspan=5, sticky="ew", padx=20, pady=10)
+        ttk.Separator(content_frame, orient='horizontal').pack(fill="x", padx=20, pady=10)
 
-        # ---- 日志区域（先创建，因为按钮需要引用 console） ----
+        # ---- 操作按钮区域 ----
+        button_frame = tk.Frame(content_frame, bg=self.COLOR_BG)
+        button_frame.pack(pady=5, padx=10, anchor="w")
+
+        # 开始截图按钮
+        self.capture_button = tk.Button(
+            button_frame,
+            text='▶ 开始截图',
+            font=self.FONT_CAPTURE_BTN,
+            bg=self.COLOR_CAPTURE_BG,
+            fg="white",
+            relief="flat", bd=0,
+            cursor="hand2",
+            padx=20, pady=6,
+            command=self._run_capture_thread
+        )
+        self.capture_button.pack(side="left", padx=(0, 5))
+
+        # 暂停/继续按钮
+        self.pause_button = tk.Button(
+            button_frame,
+            text='⏸ 暂停',
+            font=self.FONT_BUTTON,
+            bg="#F0AD4E",
+            fg="white",
+            relief="flat", bd=0,
+            cursor="hand2",
+            padx=10, pady=6,
+            state=DISABLED,
+            command=self._toggle_pause
+        )
+        self.pause_button.pack(side="left", padx=3)
+
+        # 打开截图目录按钮
+        self.open_button = tk.Button(
+            button_frame,
+            text='📂 打开截图目录',
+            font=self.FONT_BUTTON,
+            bg="#F0AD4E",
+            fg="white",
+            relief="flat", bd=0,
+            cursor="hand2",
+            padx=10, pady=6
+        )
+        self.open_button.pack(side="left", padx=3)
+
+        # 清空日志按钮
+        clear_button = tk.Button(
+            button_frame,
+            text='🗑 清空日志',
+            font=self.FONT_BUTTON,
+            bg="#D9534F",
+            fg="white",
+            relief="flat", bd=0,
+            cursor="hand2",
+            padx=10, pady=6,
+            command=lambda: self.console.clear_log() if self.console else None
+        )
+        clear_button.pack(side="left", padx=3)
+
+        # ==================== 日志区域（在底部） ====================
         log_frame = tk.Frame(self.root, bg=self.COLOR_FRAME_BG,
                              relief="solid", bd=1)
-        log_frame.grid(row=8, column=0, columnspan=5,
-                       padx=20, pady=(10, 15), sticky="nsew")
+        log_frame.pack(fill="both", expand=True, padx=10, pady=(5, 10))
 
         # 日志标题
         tk.Label(
@@ -345,74 +544,6 @@ class CameraSnapshotApp:
         self.console = LogWidget(log_frame)
         self.console.scrolled_text.pack(fill="both", expand=True,
                                         padx=8, pady=(3, 8))
-
-        # 配置 grid 权重，让日志区域可以扩展
-        self.root.grid_rowconfigure(8, weight=1)
-        self.root.grid_columnconfigure(1, weight=1)
-
-        # ---- 操作按钮区域 ----
-        button_frame = tk.Frame(self.root, bg=self.COLOR_BG)
-        button_frame.grid(row=7, column=0, columnspan=5, pady=5)
-
-        # 开始截图按钮
-        self.capture_button = tk.Button(
-            button_frame,
-            text='▶ 开始截图',
-            font=self.FONT_CAPTURE_BTN,
-            bg=self.COLOR_CAPTURE_BG,
-            fg="white",
-            relief="flat", bd=0,
-            cursor="hand2",
-            padx=25, pady=8,
-            command=self._run_capture_thread
-        )
-        self.capture_button.pack(side="left", padx=(0, 10))
-
-        # 暂停/继续按钮
-        self.pause_button = tk.Button(
-            button_frame,
-            text='⏸ 暂停',
-            font=self.FONT_BUTTON,
-            bg="#F0AD4E",
-            fg="white",
-            relief="flat", bd=0,
-            cursor="hand2",
-            padx=15, pady=8,
-            state=DISABLED,
-            command=self._toggle_pause
-        )
-        self.pause_button.pack(side="left", padx=5)
-
-        # 打开截图目录按钮
-        self.open_button = tk.Button(
-            button_frame,
-            text='📂 打开截图路径',
-            font=self.FONT_BUTTON,
-            bg="#F0AD4E",
-            fg="white",
-            relief="flat", bd=0,
-            cursor="hand2",
-            padx=15, pady=8
-        )
-        self.open_button.pack(side="left", padx=5)
-
-        # 清空日志按钮
-        clear_button = tk.Button(
-            button_frame,
-            text='🗑 清空日志',
-            font=self.FONT_BUTTON,
-            bg="#D9534F",
-            fg="white",
-            relief="flat", bd=0,
-            cursor="hand2",
-            padx=15, pady=8,
-            command=self.console.clear_log
-        )
-        clear_button.pack(side="left", padx=5)
-
-        # ---- 图像显示 Label ----
-        image_label = Label(self.root)
-        image_label.grid(row=9, column=0, columnspan=5, pady=5)
 
     # ====================== 事件回调 ======================
 
@@ -540,7 +671,7 @@ class CameraSnapshotApp:
                 for cam_index, (status, file_path) in result.items():
                     if status == 1:
                         logger.debug(f"显示摄像头{cam_index}的截图:{file_path}")
-                        display_image(file_path, main_window=self.root)
+                        self.root.after(0, lambda fp=file_path: self.show_preview_image(fp))
                 return
 
             # 网络摄像头截图
