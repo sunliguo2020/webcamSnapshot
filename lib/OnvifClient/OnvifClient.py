@@ -171,7 +171,11 @@ class OnvifClient(object):
         logger.debug(f"准备登录res.Uri:{res.Uri}")
 
         # 登录认证截图
-        response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
+        response = requests.get(
+            res.Uri,
+            auth=HTTPDigestAuth(self.username, self.password),
+            timeout=(5, 10),
+        )
 
         with open(file_path, 'wb') as f:  # 保存截图
             f.write(response.content)
@@ -194,7 +198,11 @@ class OnvifClient(object):
         file_path = os.path.join(file_dir, str(datetime.now().strftime("%Y%m%d_%H_%M_%S")) + ".jpg")
 
         res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
-        response = requests.get(res.Uri, auth=HTTPDigestAuth(self.username, self.password))
+        response = requests.get(
+            res.Uri,
+            auth=HTTPDigestAuth(self.username, self.password),
+            timeout=(5, 10),
+        )
         with open(file_path, 'wb') as f:
             f.write(response.content)
 

@@ -10,6 +10,8 @@ import os
 import time
 import tkinter as tk
 
+os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rw_timeout;5000000")
+
 import cv2
 from PIL import ImageTk, Image
 
@@ -17,9 +19,6 @@ from lib.OnvifClient import OnvifClient
 from utils.tool import is_port_open
 
 logger = logging.getLogger('camera_logger')
-
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;50"
-
 
 def display_image(image_path):
     """
@@ -61,6 +60,8 @@ class Camera:
         支持：电脑多摄像头枚举、单个截图、批量截图
     """
     RTSP_PORT = 554  # RTSP默认端口
+    VIDEO_OPEN_TIMEOUT_MS = 5000
+    VIDEO_READ_TIMEOUT_MS = 5000
 
     def __init__(
             self,
@@ -182,7 +183,20 @@ class Camera:
         cam = None
         try:
             # 获取摄像头视频帧
-            cam = cv2.VideoCapture(self.camera_path)
+            camera_path = self.camera_path
+            if self.camera_type == "computer":
+                cam = cv2.VideoCapture(camera_path)
+            else:
+                cam = cv2.VideoCapture(
+                    camera_path,
+                    cv2.CAP_FFMPEG,
+                    [
+                        cv2.CAP_PROP_OPEN_TIMEOUT_MSEC,
+                        self.VIDEO_OPEN_TIMEOUT_MS,
+                        cv2.CAP_PROP_READ_TIMEOUT_MSEC,
+                        self.VIDEO_READ_TIMEOUT_MS,
+                    ],
+                )
             # 优化：摄像头添加缓冲区设置，提高截图质量
             if self.camera_type == "computer":
                 cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
