@@ -1,14 +1,20 @@
 # -*- coding: utf-8 -*-
 """Interactive Hikvision SADP device search tool."""
+"""
+交互式海康 SADP 局域网设备搜索工具
+"""
 
 import argparse
 import ctypes
+from datetime import datetime
 import ipaddress
+import json
 from pathlib import Path
 import sys
 import threading
 from ctypes import byref
 
+# 加载 SDK 模块 如果在包中运行，则使用相对导入，否则使用绝对导入
 if __package__:
     from . import sadp as sdk
 else:
@@ -23,7 +29,9 @@ SADP_UPDATEFAIL = sdk.SADP_UPDATEFAIL
 
 
 class SADPSearchTool:
-    """Load only the SDK exports used by this CLI."""
+    """Load only the SDK exports used by this CLI.
+        加载 SDK 导出函数，仅用于此命令行工具
+    """
 
     def __init__(self, dll_path):
         if sys.platform.startswith("win"):
@@ -61,8 +69,9 @@ def _decode_field(value):
 class SADPConsole:
     """Provide the menu-driven functionality of sadp/main.cpp."""
 
-    def __init__(self, tool):
+    def __init__(self, tool, record_file):
         self.tool = tool
+        self.record_file = Path(record_file)
         self.devices = {}
         self.devices_lock = threading.Lock()
         self.searching = False
@@ -102,6 +111,7 @@ class SADPConsole:
             }
 
             with self.devices_lock:
+                self._append_record(label, info)
                 if result == SADP_DEC:
                     self.devices.pop(info["serial"], None)
                 elif result != SADP_UPDATEFAIL:
@@ -127,6 +137,20 @@ class SADPConsole:
             print("----------------------------------------")
         except Exception as exc:
             print(f"SADP设备回调处理失败: {exc}", file=sys.stderr)
+
+    def _append_record(self, event, device_info):
+        record = {
+            "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "event": event,
+            "device": device_info,
+        }
+        try:
+            self.record_file.parent.mkdir(parents=True, exist_ok=True)
+            with self.record_file.open("a", encoding="utf-8", newline="\n") as record_stream:
+                record_stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+                record_stream.flush()
+        except OSError as exc:
+            print(f"写入设备记录失败 ({self.record_file}): {exc}", file=sys.stderr)
 
     def _error_code(self):
         return self.tool.dll.SADP_GetLastError()
@@ -268,6 +292,7 @@ class SADPConsole:
         print("========================================")
         print("    SADP局域网设备搜索工具 v1.0")
         print("========================================")
+        print(f"设备搜索记录文件: {self.record_file}")
 
         if not self.tool.dll.SADP_SetLogToFile(3, b".\\log", 1):
             print(f"设置日志失败! 错误码: {self._error_code()}")
@@ -309,6 +334,12 @@ def main(argv=None):
         default=str(default_dll),
         help="SADP 动态库路径 (默认: %(default)s)",
     )
+    default_record_file = Path(__file__).resolve().with_name("sadp_devices.jsonl")
+    parser.add_argument(
+        "--record-file",
+        default=str(default_record_file),
+        help="设备搜索记录文件 (JSON Lines，默认: %(default)s)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -317,7 +348,7 @@ def main(argv=None):
         print(f"加载 SADP 动态库失败: {exc}", file=sys.stderr)
         return 1
 
-    SADPConsole(tool).run()
+    SADPConsole(tool, args.record_file).run()
     return 0
 
 
