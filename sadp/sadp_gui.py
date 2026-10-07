@@ -12,6 +12,9 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from datetime import datetime
 
+# Import SADP SDK and CLI modules, handling relative imports for package context
+# This allows the script to be run both as a standalone module and as part of a package.
+# 汉语注释：导入 SADP SDK 和 CLI 模块，处理包上下文的相对导入
 if __package__:
     from . import sadp as sdk
     from .sadp_cli import (
@@ -37,18 +40,21 @@ else:
 
 
 class SADPGui:
-    """Display SADP device events and provide common SDK operations."""
+    """Display SADP device events and provide common SDK operations.
+        展示 SADP 设备事件，并提供常用 SDK 操作。
+    """
 
     def __init__(self, root, tool, record_file):
-        self.root = root
-        self.tool = tool
-        self.record_file = Path(record_file)
+        self.root = root    # Tkinter root window
+        self.tool = tool    # SADPSearchTool instance
+        self.record_file = Path(record_file)    # 获取设备记录文件路径
         self.devices = {}
         self.devices_lock = threading.Lock()
         self.events = queue.Queue()
         self.searching = False
         self.callback = sdk.PDEVICE_FIND_CALLBACK(self._on_device_find)
 
+        # 初始化 Tkinter 窗口
         self.root.title("SADP 局域网设备搜索工具")
         self.root.geometry("1100x650")
         self.root.minsize(850, 480)
@@ -67,6 +73,9 @@ class SADPGui:
             self._set_status(f"设备记录文件：{self.record_file}")
 
     def _build_ui(self):
+        """
+        构建 Tkinter 用户界面，包括工具栏、设备列表表格、设备详情和事件日志区域，以及状态栏。
+        """
         toolbar = ttk.Frame(self.root, padding=(10, 10, 10, 4))
         toolbar.pack(fill=tk.X)
 
@@ -152,6 +161,9 @@ class SADPGui:
         self.status_var.set(text)
 
     def _append_record(self, event, info):
+        """
+        将设备事件记录追加到文件中。
+        """
         record = {
             "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
             "event": event,
@@ -166,6 +178,9 @@ class SADPGui:
             self.events.put(("error", f"写入设备记录失败 ({self.record_file})：{exc}"))
 
     def _on_device_find(self, device_pointer, _user_data):
+        """
+        SADP 设备发现回调函数，处理设备事件并更新设备列表。
+        """
         if not device_pointer:
             return
         try:
@@ -207,6 +222,9 @@ class SADPGui:
             self.events.put(("error", f"SADP 设备回调处理失败：{exc}"))
 
     def _poll_events(self):
+        """
+        定期轮询事件队列，处理设备事件和错误信息，并更新设备列表和状态栏。
+        """
         while True:
             try:
                 event = self.events.get_nowait()
@@ -223,6 +241,9 @@ class SADPGui:
         self.root.after(100, self._poll_events)
 
     def _device_count(self):
+        """
+        返回当前设备列表中的设备数量。
+        """
         with self.devices_lock:
             return len(self.devices)
 
@@ -259,6 +280,9 @@ class SADPGui:
         self.events_text.configure(state=tk.DISABLED)
 
     def _show_device_details(self, _event=None):
+        """
+        
+        """
         selection = self.device_table.selection()
         if not selection:
             return
@@ -347,6 +371,9 @@ class SADPGui:
         self._append_event("已清空设备列表")
 
     def _activate_device(self):
+        """
+        弹出激活设备对话框，允许用户输入设备序列号和新密码，并调用 SDK 激活设备。
+        """
         info = self._selected_device()
         if info is None:
             return
@@ -391,6 +418,9 @@ class SADPGui:
         password_entry.focus_set()
 
     def _modify_network(self):
+        """
+        弹出修改设备网络参数对话框，允许用户输入新的网络参数，并调用 SDK 更新设备网络配置。
+        """
         info = self._selected_device()
         if info is None:
             return
@@ -477,6 +507,9 @@ class SADPGui:
 
 
 def main(argv=None):
+    """
+    
+    """
     parser = argparse.ArgumentParser(description="海康 SADP Tkinter 图形界面")
     default_dll = Path(__file__).resolve().with_name("Sadp.dll")
     parser.add_argument("--dll", default=str(default_dll), help="SADP 动态库路径")
