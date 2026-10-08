@@ -11,3 +11,4 @@ __pycache__
 *.exe
 /build/*
 *.spec
+.venv/
