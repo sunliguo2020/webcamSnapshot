@@ -8,6 +8,7 @@ import logging
 import os
 import time
 import tkinter as tk
+from urllib.parse import quote
 
 os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rw_timeout;5000000")
 
@@ -280,7 +281,7 @@ class Camera:
         :return:
         """
         if self.frame is None:
-            raise Exception("截图失败或未打开摄像头，无法添加水印信息！")
+            raise RuntimeError("截图失败或未打开摄像头，无法添加水印信息！")
         text = self.file_name
         img_height, img_width = self.frame.shape[:2]
         margin = max(12, round(img_width * 0.02))
@@ -331,42 +332,58 @@ class Camera:
     @property
     def camera_path(self):
         """
-        rtsp 视频流地址
-        电脑摄像头为 0
-        海康和大华为默认的，
-        onvif需要请求获取
-
-        @return:
+        获取可供 OpenCV 使用的单个摄像头地址。
         """
-        # camera_type 类型 dahua hik computer
-        if self.camera_type == "dahua" and self.ip:
-            return f"rtsp://admin:{self.password}@{self.ip}:554/cam/realmonitor?channel=1&subtype=0"
-        # 电脑摄像头
-        # TODO 多个摄像头的情况
-        elif self.camera_type == "computer" or not self.ip:
-            # 新增日志：确认返回的索引是否正确
-            logger.debug(f"当前Camera实例返回电脑摄像头索引:{self.cam_index}")
-
+        if self.camera_type == "computer":
+            logger.debug("当前Camera实例返回电脑摄像头索引:%s", self.cam_index)
             return self.cam_index
-        # 海康威视
-        elif self.camera_type == "hik" and self.ip:
-            return f"rtsp://admin:{self.password}@{self.ip}:554/h264/ch34/main/av_stream"
 
-        # onvif 判断
-        elif self.camera_type == "onvif" and self.ip and self.onvif_port:
+        if not self.ip:
+            raise ValueError("网络摄像头 IP 地址不能为空")
+
+        username = quote(str(self.username or "admin"), safe="")
+        password = quote(str(self.password or ""), safe="")
+        credentials = f"{username}:{password}@"
+
+        if self.camera_type == "dahua":
+            return (
+                f"rtsp://{credentials}{self.ip}:554/"
+                "cam/realmonitor?channel=1&subtype=0"
+            )
+
+        if self.camera_type == "hik":
+            return f"rtsp://{credentials}{self.ip}:554/h264/ch34/main/av_stream"
+
+        if self.camera_type == "onvif":
             try:
-                client = OnvifClient(ip=self.ip,
-                                     port=self.onvif_port,
-                                     username=self.username,
-                                     password=self.password)
-                # 先连接摄像机
-                if not client.connect():
-                    raise ConnectionError("ONVIF协议连接失败，用户名/密码错误或设备不支持ONVIF")
-                return client.GetStreamUri()
+                client = OnvifClient(
+                    ip=self.ip,
+                    port=int(self.onvif_port),
+                    username=self.username,
+                    password=self.password,
+                )
+                stream_uris = client.GetStreamUri()
+                if isinstance(stream_uris, str):
+                    stream_uris = [stream_uris]
+                stream_uri = next(
+                    (
+                        uri.strip()
+                        for uri in stream_uris
+                        if isinstance(uri, str)
+                        and uri.strip().lower().startswith("rtsp://")
+                    ),
+                    None,
+                )
+                if stream_uri is None:
+                    raise ValueError("ONVIF 未返回有效的 RTSP 地址")
+                return stream_uri
             except Exception as e:
-                raise RuntimeError(f"获取ONVIF流地址失败：{str(e)}")
-        else:
-            raise ValueError("camera type error!only dahua hik computer onvif")
+                raise RuntimeError(f"获取ONVIF流地址失败：{e}") from e
+
+        raise ValueError(
+            f"不支持的摄像头类型: {self.camera_type}，"
+            "仅支持 dahua、hik、computer、onvif"
+        )
 
     # @property装饰器的作用：1、让函数可以向普通遍历一样使用2、对要读取的数据进行预处理
     @property

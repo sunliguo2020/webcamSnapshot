@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+from urllib.parse import quote
 
 import requests
 import zeep
@@ -233,7 +234,11 @@ class OnvifClient(object):
             res = self.media.GetStreamUri(obj)
             url = res['Uri']
             if 'rtsp://' in url and '@' not in url:
-                url = url.replace('rtsp://', 'rtsp://%s:%s@' % (self.username, self.password))
+                credentials = (
+                    f"{quote(self.username, safe='')}:"
+                    f"{quote(self.password, safe='')}@"
+                )
+                url = url.replace('rtsp://', f'rtsp://{credentials}', 1)
             result.append(url)
         return result
         # url示例 rtsp://192.168.1.176:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif
