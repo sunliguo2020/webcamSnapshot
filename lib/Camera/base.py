@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @author: sunliguo
 @contact: QQ376440229
@@ -13,7 +12,7 @@ import tkinter as tk
 os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rw_timeout;5000000")
 
 import cv2
-from PIL import ImageTk, Image
+from PIL import Image, ImageTk
 
 from lib.OnvifClient import OnvifClient
 from utils.tool import is_port_open
@@ -47,9 +46,6 @@ def display_image(image_path):
     label.pack()
     root.mainloop()
 
-
-# 调用函数显示图片
-# display_image("path/to/your/saved/screenshot.png")  # 替换为实际的截图路径
 
 class Camera:
     """
@@ -93,7 +89,6 @@ class Camera:
         @param folder_path:
         @param is_water_mark:
         """
-        #
         logger.debug(f"__init__参数:ip:{ip},"
                      f"username:{username},"
                      f"password:{password},"
@@ -126,7 +121,6 @@ class Camera:
                     raise  # 如果不是文件已存在的错误，则抛出异常
         # 延迟赋值，确保self.file_name属性加载完成后再拼接路径，避免控制
         self.file_full_path = None
-        # self.file_full_path = os.path.join(self.folder_path, self.file_name)
 
     @staticmethod
     def enum_computer_cameras(max_index=10):
@@ -165,16 +159,14 @@ class Camera:
         logger.debug(f"ip:{cam_desc}开始截图")
         # 检查摄像头是否可用
         # 提前统一赋值，覆盖所有分支
-        if self.camera_type != "computer":
+        if self.camera_type != "computer" and not self.check_camera():
+            err_msg = (
+                f"{cam_desc} 554端口不可达/摄像头离线"
+            )
 
-            if not self.check_camera():
-                err_msg = (
-                    f"{cam_desc} 554端口不可达/摄像头离线"
-                )
+            logger.debug(err_msg)
 
-                logger.debug(err_msg)
-
-                return -1, err_msg
+            return -1, err_msg
 
         # 赋值完整路径，确保万无一失
         if self.file_full_path is None:
@@ -284,67 +276,36 @@ class Camera:
 
     def watermark(self):
         """
-        截图添加水印信息：图片的名字
-        左上角自适应水印
+        在截图左上角添加白色文件名水印。
         :return:
         """
         if self.frame is None:
             raise Exception("截图失败或未打开摄像头，无法添加水印信息！")
-        # 添加水印信息
-
-        text = self.file_name.replace(".jpg", "")
+        text = self.file_name
         img_height, img_width = self.frame.shape[:2]
-
-        # =========================
-        # 字体大小自适应
-        # =========================
-
-        # 根据图片宽度动态调整
-        font_scale = max(img_width / 1200, 0.6)
-
-        thickness = max(int(font_scale * 2), 1)
-
+        margin = max(12, round(img_width * 0.02))
+        available_width = max(1, img_width - margin * 2)
+        font_scale = max(0.3, min(img_width / 1200, 2.0))
+        thickness = max(round(font_scale * 2), 1)
         font_face = cv2.FONT_HERSHEY_SIMPLEX
-
-        # 获取文字尺寸
         (text_width, text_height), baseline = cv2.getTextSize(
             text,
             font_face,
             font_scale,
             thickness
         )
-
-        # =========================
-        # 左上角边距
-        # =========================
-
-        margin = int(img_width * 0.02)
-
+        if text_width > available_width:
+            font_scale *= available_width / text_width
+            thickness = max(round(font_scale * 2), 1)
+            (text_width, text_height), baseline = cv2.getTextSize(
+                text,
+                font_face,
+                font_scale,
+                thickness
+            )
         x = margin
-
-        y = margin + text_height
-
-        # =========================
-        # 绘制黑色背景
-        # =========================
-
-        bg_x1 = x - 10
-        bg_y1 = y - text_height - 10
-
-        bg_x2 = x + text_width + 10
-        bg_y2 = y + baseline + 10
-
-        cv2.rectangle(
-            self.frame,
-            (bg_x1, bg_y1),
-            (bg_x2, bg_y2),
-            (0, 0, 0),
-            -1
-        )
-
-        # =========================
-        # 绘制文字
-        # =========================
+        y = min(text_height + margin, img_height - baseline - 1)
+        y = max(text_height, y)
 
         cv2.putText(
             self.frame,
@@ -352,7 +313,17 @@ class Camera:
             (x, y),
             font_face,
             font_scale,
-            (0, 255, 0),  # 绿色
+            (0, 0, 0),
+            thickness + 4,
+            cv2.LINE_AA
+        )
+        cv2.putText(
+            self.frame,
+            text,
+            (x, y),
+            font_face,
+            font_scale,
+            (255, 255, 255),
             thickness,
             cv2.LINE_AA
         )

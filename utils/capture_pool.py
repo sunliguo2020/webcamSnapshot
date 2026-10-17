@@ -6,7 +6,7 @@
 import csv
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from lib.Camera import Camera
@@ -15,6 +15,7 @@ from utils.log_utils import pause_event
 from utils.tool import get_cam_list
 
 logger = logging.getLogger('camera_logger')
+DEFAULT_MAX_WORKERS = 8
 
 
 def batch_capture_computer_cameras(folder_path=None,
@@ -53,101 +54,196 @@ def batch_capture_computer_cameras(folder_path=None,
     return capture_results
 
 
-def capture_pool(csv_file, *args, **kwargs):
-    """
-    使用线程池截图,摄像头类型 和 保存路径
-    @param csv_file:保存ip,port,user,password的csv文件
-    @param args: 额外位置参数
-    @param kwargs: 额外关键字参数
-    @return: tuple(结果列表，统计字典)
-    """
-    # 准备失败IP保存路径
-    fail_log_dir = "fail_logs"
-    if not os.path.exists(fail_log_dir):
-        os.makedirs(fail_log_dir, exist_ok=True)
+def _capture_one(index, camera_info, camera_type, folder_path, is_water_mark):
+    """Capture one camera and return a normalized result tuple."""
+    pause_event.wait()
+    ip = str(camera_info.get('ip', 'unknown'))
+    logger.info("开始截图 IP: %s", ip)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # 获取原CSV文件的文件名（不带路径和后缀）
-    # os.path.basename 获取完整文件名（含后缀），os.path.splitext 分离文件名和后缀
-    csv_filename = os.path.splitext(os.path.basename(csv_file))[0]
-    fail_log_file = os.path.join(fail_log_dir, f"{csv_filename}_{timestamp}.csv")
+    if camera_type == 'onvif':
+        port = camera_info.get('port') or camera_info.get('onvif_port') or 80
+        client = OnvifClient(
+            ip=ip,
+            port=int(port),
+            username=camera_info.get('username') or 'admin',
+            password=camera_info.get('password', ''),
+            folder_path=folder_path,
+        )
+        file_path = client.Snapshot(file_dir=folder_path)
+        if file_path:
+            return index, ip, 1, file_path
+        return index, ip, 0, "ONVIF 快照失败"
 
-    # 这里可以添加后续逻辑，比如创建失败日志文件、写入失败IP等
-    logger.debug(f"失败日志文件路径：{fail_log_file}")
+    camera = Camera(
+        ip=ip,
+        username=camera_info.get('username') or 'admin',
+        password=camera_info.get('password', ''),
+        camera_type=camera_type,
+        onvif_port=int(camera_info.get('onvif_port') or camera_info.get('port') or 80),
+        folder_path=folder_path,
+        is_water_mark=is_water_mark,
+    )
+    status, result = camera.capture()
+    return index, ip, status, result
 
-    # 1、获取摄像头列表
+
+def _capture_camera_records(
+    cameras,
+    csv_file,
+    camera_type,
+    folder_path=None,
+    is_water_mark=True,
+    max_workers=DEFAULT_MAX_WORKERS,
+):
+    """Capture parsed camera records with bounded concurrency."""
+    statistics = {
+        'total': 0,
+        'success': 0,
+        'failed': 0,
+        'failed_ips': [],
+        'errors': [],
+        'fail_log_file': None,
+    }
+
+    statistics['total'] = len(cameras)
+    if not cameras:
+        statistics['errors'].append("CSV 中没有有效的摄像头记录")
+        log_statistics(statistics)
+        return [], statistics
+
+    results = [None] * len(cameras)
+    worker_count = max(1, min(int(max_workers), len(cameras)))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            executor.submit(
+                _capture_one,
+                index,
+                camera_info,
+                camera_type,
+                folder_path,
+                is_water_mark,
+            ): index
+            for index, camera_info in enumerate(cameras)
+        }
+
+        for future in as_completed(futures):
+            index = futures[future]
+            camera_info = cameras[index]
+            ip = str(camera_info.get('ip', 'unknown'))
+            try:
+                result_index, ip, status, info = future.result()
+            except Exception as error:
+                result_index, status, info = index, 0, str(error)
+                logger.exception("截图任务异常 IP: %s", ip)
+
+            results[result_index] = (status, info)
+            if status == 1:
+                statistics['success'] += 1
+                logger.info("截图成功 IP: %s", ip)
+            else:
+                statistics['failed'] += 1
+                statistics['failed_ips'].append((ip, info))
+                logger.warning("截图失败 IP: %s - %s", ip, info)
+
+    if statistics['failed_ips']:
+        try:
+            report_dir = folder_path or os.path.join(os.getcwd(), 'fail_logs')
+            os.makedirs(report_dir, exist_ok=True)
+            csv_name = os.path.splitext(os.path.basename(csv_file))[0]
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            fail_log_file = os.path.join(
+                report_dir, f"{csv_name}_failed_{timestamp}.csv"
+            )
+            with open(fail_log_file, 'w', newline='', encoding='utf-8-sig') as file:
+                writer = csv.writer(file)
+                writer.writerow(['IP地址', '错误信息', '时间'])
+                for ip, error in statistics['failed_ips']:
+                    writer.writerow([
+                        ip,
+                        error,
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    ])
+            statistics['fail_log_file'] = fail_log_file
+            logger.info("失败IP已保存到文件: %s", fail_log_file)
+        except OSError as error:
+            logger.exception("保存失败IP记录失败")
+            statistics['errors'].append(f"保存失败记录失败: {error}")
+
+    log_statistics(statistics)
+    return results, statistics
+
+
+def _capture_csv_cameras(
+    csv_file,
+    camera_type,
+    folder_path=None,
+    is_water_mark=True,
+    max_workers=DEFAULT_MAX_WORKERS,
+):
+    """Read a CSV once and capture its cameras."""
     try:
-        cam_list = list(get_cam_list(csv_file))  # 转换为列表以便复用
-    except Exception as e:
-        logger.error(f"读取CSV文件失败: {e}", exc_info=True)
-        error_stats = {
+        if not str(csv_file).lower().endswith('.csv'):
+            raise ValueError("请选择 CSV 文件")
+        cameras = list(get_cam_list(csv_file))
+    except (OSError, UnicodeError, ValueError, csv.Error) as error:
+        logger.exception("读取摄像头 CSV 失败")
+        statistics = {
             'total': 0,
             'success': 0,
             'failed': 0,
             'failed_ips': [],
-            'errors': [str(e)],
-            'fail_log_file': None
+            'errors': [str(error)],
+            'fail_log_file': None,
         }
-        return [], error_stats
+        log_statistics(statistics)
+        return [], statistics
 
-    last_results = []
-    statistics = {
-        'total': len(cam_list),
-        'success': 0,
-        'failed': 0,
-        'failed_ips': [],  # 存储失败的IP和错误信息
-        'errors': [],  # 存储其他错误
-        'fail_log_file': fail_log_file  # 失败IP记录文件路径
-    }
+    return _capture_camera_records(
+        cameras,
+        csv_file,
+        camera_type,
+        folder_path=folder_path,
+        is_water_mark=is_water_mark,
+        max_workers=max_workers,
+    )
 
-    # 2、逐个执行截图，支持暂停
-    try:
-        for caminfo in cam_list:
-            pause_event.wait()
 
-            try:
-                ip = caminfo.get('ip', 'unknown')
-                logger.debug(f"开始截图 IP: {ip}")
-                result = Camera(**caminfo, **kwargs).capture()
-                last_results.append(result)
+def capture_cameras(
+    cameras,
+    camera_type,
+    csv_file,
+    folder_path=None,
+    is_water_mark=True,
+    max_workers=DEFAULT_MAX_WORKERS,
+):
+    """Capture already-parsed CSV records using the shared batch pipeline."""
+    if camera_type not in {'hik', 'dahua', 'onvif'}:
+        raise ValueError(f"不支持的摄像头类型: {camera_type}")
+    return _capture_camera_records(
+        cameras,
+        csv_file,
+        camera_type,
+        folder_path=folder_path,
+        is_water_mark=is_water_mark,
+        max_workers=max_workers,
+    )
 
-                if result[0] == 1:
-                    statistics['success'] += 1
-                    logger.info(f"截图成功 IP: {ip}")
-                else:
-                    statistics['failed'] += 1
-                    error_msg = result[1] if len(result) > 1 else 'unknown error'
-                    statistics['failed_ips'].append((ip, error_msg))
-                    logger.warning(f"截图失败 IP: {ip} - {error_msg}")
 
-            except Exception as e:
-                statistics['failed'] += 1
-                ip = caminfo.get('ip', 'unknown')
-                error_msg = str(e)
-                statistics['failed_ips'].append((ip, error_msg))
-                logger.error(f"截图异常 IP: {ip} - {error_msg}", exc_info=True)
-
-    except Exception as e:
-        logger.error(f"线程池运行异常: {e}", exc_info=True)
-        statistics['errors'].append(str(e))
-
-    # 保存失败IP到文件
-    if statistics['failed_ips']:
-        try:
-            with open(fail_log_file, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow(['IP地址', '错误信息', '时间'])
-                for ip, error in statistics['failed_ips']:
-                    writer.writerow([ip, error, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-            logger.info(f"失败IP已保存到文件: {fail_log_file}")
-        except Exception as e:
-            logger.error(f"保存失败IP记录失败: {e}", exc_info=True)
-            statistics['errors'].append(f"保存失败记录失败: {e}")
-
-    # 生成详细统计报告
-    log_statistics(statistics)
-
-    return last_results, statistics
+def capture_pool(csv_file, *args, **kwargs):
+    """Capture Hikvision or Dahua cameras listed in a CSV file."""
+    camera_type = kwargs.pop('camera_type', args[0] if args else 'hik')
+    folder_path = kwargs.pop('folder_path', None)
+    is_water_mark = kwargs.pop('is_water_mark', True)
+    max_workers = kwargs.pop('max_workers', DEFAULT_MAX_WORKERS)
+    if camera_type not in {'hik', 'dahua'}:
+        raise ValueError(f"不支持的摄像头类型: {camera_type}")
+    return _capture_csv_cameras(
+        csv_file,
+        camera_type,
+        folder_path=folder_path,
+        is_water_mark=is_water_mark,
+        max_workers=max_workers,
+    )
 
 
 def log_statistics(statistics):
@@ -160,7 +256,7 @@ def log_statistics(statistics):
     if statistics['failed_ips']:
         logger.info("\n失败摄像头详情:")
         for idx, (ip, error) in enumerate(statistics['failed_ips'], 1):
-            logger.info(f"  {idx}. IP: {ip.ljust(15)} 错误: {error}")
+            logger.info(f"  {idx}. IP: {str(ip).ljust(15)} 错误: {error}")
 
     if statistics['errors']:
         logger.info("\n系统错误:")
@@ -173,41 +269,16 @@ def log_statistics(statistics):
     logger.info("=" * 50 + "\n")
 
 
-def onvif_pool(csv_file, *arg, **kwargs):
-    """
-    使用线程池onvif截图
-    @param csv_file: ip,password的csv文件
-    @param arg:
-    @param kwargs:
-    @return:
-    """
-    cam_list = get_cam_list(csv_file)
-    logger.debug(f"csv文件：{cam_list}")
-    try:
-        futures_list = []
-
-        def capture_one(camera_info):
-            pause_event.wait()
-            return OnvifClient(**camera_info, **kwargs).Snapshot()
-
-        with ThreadPoolExecutor() as pool:
-            # results 是返回的结果列表
-            # results = pool.map(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot(), cam_list)
-            # futures_list = [pool.submit(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot()) for inkwargs in
-            #                 cam_list]
-            for item in cam_list:
-                future = pool.submit(capture_one, item)
-                futures_list.append(future)
-    except Exception as e:
-        logger.error(f"在线程池执行中发生错误：{e}")
-
-    pool.shutdown()
-    success = 0
-    for future in futures_list:
-        logger.debug(future.result())
-        if future.result():
-            success += 1
-    logger.debug(f"统计：成功{success}失败{len(futures_list) - success}")
+def onvif_pool(csv_file, *args, **kwargs):
+    """Capture ONVIF cameras using the shared CSV batch pipeline."""
+    folder_path = kwargs.pop('folder_path', None)
+    max_workers = kwargs.pop('max_workers', DEFAULT_MAX_WORKERS)
+    return _capture_csv_cameras(
+        csv_file,
+        'onvif',
+        folder_path=folder_path,
+        max_workers=max_workers,
+    )
 
 
 if __name__ == '__main__':

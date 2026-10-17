@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @author: sunliguo
 @contact: QQ376440229
@@ -9,7 +8,8 @@ import csv
 import logging
 import os
 import socket
-from typing import Dict, Iterator, Optional
+from collections.abc import Iterator
+from typing import Dict, Optional
 
 logger = logging.getLogger('camera_logger')
 
@@ -129,14 +129,16 @@ def get_cam_list(csv_file: str, required_fields: Optional[list] = None) -> Itera
             fp.seek(0)  # 重置文件指针
 
             reader = csv.DictReader(fp)
-            reader.fieldnames = [field.strip().lower() for field in reader.fieldnames]
-
-            # 检查是否有表头
             if not reader.fieldnames:
                 logger.debug(f"CSV文件 '{csv_file}' 缺少表头")
                 raise ValueError(f"CSV文件 '{csv_file}' 缺少表头")
-            else:
-                logger.debug(f"CSV文件 '{csv_file}' 表头: {reader.fieldnames}")
+
+            headers = [field.strip().lower() for field in reader.fieldnames]
+            if len(headers) != len(set(headers)):
+                raise ValueError(f"CSV文件 '{csv_file}' 存在重复表头")
+            reader.fieldnames = headers
+            required_fields = [field.strip().lower() for field in required_fields]
+            logger.debug(f"CSV文件 '{csv_file}' 表头: {headers}")
 
             # 检查必要字段
             missing_fields = [field for field in required_fields if field not in reader.fieldnames]
@@ -145,14 +147,23 @@ def get_cam_list(csv_file: str, required_fields: Optional[list] = None) -> Itera
 
             line_num = 1  # 第一行是header，从第二行开始计数
             for line_num, row in enumerate(reader, 2):  # 从第2行开始计数
+                if None in row:
+                    logger.warning(f"第 {line_num} 行列数多于表头，已跳过")
+                    continue
+
+                cleaned_row = {
+                    key: value.strip() if isinstance(value, str) else value
+                    for key, value in row.items()
+                }
+
                 # 检查必要字段是否有值
-                missing_values = [field for field in required_fields if not row.get(field)]
+                missing_values = [
+                    field for field in required_fields
+                    if not cleaned_row.get(field)
+                ]
                 if missing_values:
                     logger.warning(f"第 {line_num} 行缺少值: {missing_values}")
                     continue
-
-                # 清理数据：去除字符串两端的空格
-                cleaned_row = {k: v.strip() if isinstance(v, str) else v for k, v in row.items()}
 
                 yield cleaned_row
 

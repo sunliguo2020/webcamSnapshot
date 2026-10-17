@@ -14,7 +14,7 @@ from tkinter import DISABLED, NORMAL, filedialog, ttk
 from PIL import Image, ImageTk
 
 # 导入抽离的工具类
-from utils.capture_pool import batch_capture_computer_cameras, capture_pool, onvif_pool
+from utils.capture_pool import batch_capture_computer_cameras, capture_cameras
 from utils.log_config import setup_logging
 from utils.log_utils import (
     LogWidget,
@@ -23,7 +23,7 @@ from utils.log_utils import (
     poll_gui_queue,
 )
 from utils.other_utils import build_save_dir, open_folder
-from utils.tool import validate_csv_file
+from utils.tool import get_cam_list
 
 # 初始化日志
 logger = setup_logging()
@@ -628,9 +628,15 @@ class CameraSnapshotApp:
             logger.debug(f"采集的摄像头类型为：{client_type}")
             logger.debug(f"是否添加水印：{watermark_flag}")
 
-            # 校验 CSV 文件（电脑摄像头不用）
+            camera_records = None
             if client_type != '电脑':
-                validate_csv_file(csv_file)
+                if not csv_file or not os.path.isfile(csv_file):
+                    raise FileNotFoundError("CSV文件不存在，请重新选择")
+                if not csv_file.lower().endswith('.csv'):
+                    raise ValueError("请选择 CSV 文件")
+                camera_records = list(get_cam_list(csv_file))
+                if not camera_records:
+                    raise ValueError("CSV 中没有有效的摄像头记录")
 
             # 构建保存目录
             self.save_dir = build_save_dir(
@@ -658,17 +664,43 @@ class CameraSnapshotApp:
 
             # 网络摄像头截图
             if client_type == '海康':
-                capture_pool(
-                    csv_file, camera_type="hik",
-                    is_water_mark=watermark_flag, folder_path=self.save_dir
+                result, statistics = capture_cameras(
+                    camera_records,
+                    camera_type="hik",
+                    csv_file=csv_file,
+                    is_water_mark=watermark_flag,
+                    folder_path=self.save_dir,
                 )
             elif client_type == '大华':
-                capture_pool(
-                    csv_file, camera_type='dahua',
-                    is_water_mark=watermark_flag, folder_path=self.save_dir
+                result, statistics = capture_cameras(
+                    camera_records,
+                    camera_type='dahua',
+                    csv_file=csv_file,
+                    is_water_mark=watermark_flag,
+                    folder_path=self.save_dir,
                 )
             elif client_type == 'onvif':
-                onvif_pool(csv_file, folder_path=self.save_dir)
+                result, statistics = capture_cameras(
+                    camera_records,
+                    camera_type='onvif',
+                    csv_file=csv_file,
+                    folder_path=self.save_dir,
+                )
+
+            if client_type != '电脑':
+                summary = (
+                    f"批量截图完成：共 {statistics['total']} 台，"
+                    f"成功 {statistics['success']} 台，失败 {statistics['failed']} 台。"
+                )
+                if statistics['fail_log_file']:
+                    summary += f"\n失败清单：{statistics['fail_log_file']}"
+                if statistics['errors']:
+                    summary += f"\n异常：{statistics['errors'][0]}"
+                logger.info(summary.replace('\n', ' '))
+                if statistics['failed'] or statistics['errors']:
+                    gui_queue.put(("show_warning", ("截图完成", summary)))
+                else:
+                    gui_queue.put(("show_info", ("截图完成", summary)))
 
         except Exception as e:
             logger.error(f"截图任务异常:{str(e)}")

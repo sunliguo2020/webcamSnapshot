@@ -114,7 +114,13 @@ class OnvifClient(object):
         @return:
         """
         datetime_str = datetime.now().strftime("%Y%m%d%H%M%S")
-        file_name_list = [self.ip, self.username, self.password, 'onvif', datetime_str]
+        file_name_list = [
+            self.ip,
+            self.username,
+            self.password,
+            'onvif',
+            datetime_str,
+        ]
         file_name = '_'.join([str(i) for i in file_name_list]) + '.jpg'
         return file_name
 
