@@ -53,8 +53,6 @@ class Camera:
     一个摄像头的类
     可以捕捉支持rtsp协议的网络摄像头，或者是电脑的摄像头
     或者通过onvif协议获取rtsp的地址
-    2025-12-31：
-        支持：电脑多摄像头枚举、单个截图、批量截图
     """
     RTSP_PORT = 554  # RTSP默认端口
     VIDEO_OPEN_TIMEOUT_MS = 5000
@@ -157,24 +155,17 @@ class Camera:
         else:
             cam_desc = self.ip or "未指定IP的网络摄像头"
 
-        logger.debug(f"ip:{cam_desc}开始截图")
-        # 检查摄像头是否可用
-        # 提前统一赋值，覆盖所有分支
-        if self.camera_type != "computer" and not self.check_camera():
-            err_msg = (
-                f"{cam_desc} 554端口不可达/摄像头离线"
-            )
-
-            logger.debug(err_msg)
-
-            return -1, err_msg
-
-        # 赋值完整路径，确保万无一失
-        if self.file_full_path is None:
-            self.file_full_path = os.path.join(self.folder_path, self.file_name)
-
+        logger.debug("ip:%s开始截图", cam_desc)
         cam = None
         try:
+            if self.camera_type != "computer" and not self.check_camera():
+                err_msg = f"{cam_desc} 554端口不可达/摄像头离线"
+                logger.debug(err_msg)
+                return -1, err_msg
+
+            if self.file_full_path is None:
+                self.file_full_path = os.path.join(self.folder_path, self.file_name)
+
             # 获取摄像头视频帧
             camera_path = self.camera_path
             if self.camera_type == "computer":
@@ -194,33 +185,32 @@ class Camera:
             if self.camera_type == "computer":
                 cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
                 cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-                # 读取2帧（丢弃第一帧模糊帧）
+                # 丢弃前两帧，使用摄像头稳定后的画面。
                 for _ in range(2):
-                    cam.read()
+                    ret, _ = cam.read()
+                    if not ret:
+                        raise RuntimeError("读取摄像头预热帧失败")
             if not cam.isOpened():
                 raise RuntimeError("视频对象读取失败")
-            else:
-                logger.debug(
-                    f"{f'电脑摄像头(索引{self.cam_index})' if self.camera_type == 'computer' else self.ip} 摄像头打开成功")
-            # 读取摄像头
-            # 修复cv2读取桢无判断，防止None值传入水印函数
+            logger.debug("%s 摄像头打开成功", cam_desc)
+
             ret, self.frame = cam.read()
             if not ret or self.frame is None:
                 raise RuntimeError("读取摄像头桢数据失败，画面为空")
 
-            # 添加水印
             if self.is_water_mark:
                 self.watermark()
 
-            # 保存截图
-            cv2.imencode('.jpg', self.frame)[1].tofile(self.file_full_path)
-            # 判断是否保存成功
-            if os.path.isfile(self.file_full_path):
-                logger.debug(f'截图成功,文件路径：{self.file_full_path}')
-                return 1, self.file_full_path
-            else:
-                logger.debug('截图保存失败！')
-                return -2, '截图保存失败！'
+            encoded_ok, encoded_image = cv2.imencode('.jpg', self.frame)
+            if not encoded_ok or encoded_image is None:
+                return -2, "JPEG 图像编码失败"
+
+            encoded_image.tofile(self.file_full_path)
+            if not os.path.isfile(self.file_full_path) or os.path.getsize(self.file_full_path) == 0:
+                return -2, "截图保存失败或文件为空"
+
+            logger.debug("截图成功,文件路径：%s", self.file_full_path)
+            return 1, self.file_full_path
 
         except Exception as e:
             err_info = f"捕获图像时发生错误：{e}"
@@ -228,19 +218,11 @@ class Camera:
             return -3, err_info
 
         finally:
-            # 释放资源
-            # 修复资源释放重复+冗余BUG- 简洁安全的释放方式，避免句柄残留
-            if cam is not None and cam.isOpened():
-                cam.release()
-
-            """  # 新增：强制清空缓存，避免句柄残留
-               cv2.VideoCapture(self.camera_path).release()
-           if self.frame is not None:
-               del self.frame
-           """
-
-            cv2.destroyAllWindows()
-            # 清空桢变量，释放内存
+            if cam is not None:
+                try:
+                    cam.release()
+                except Exception:
+                    logger.exception("释放摄像头资源失败: %s", cam_desc)
             self.frame = None
 
     def check_camera(self) -> bool:
