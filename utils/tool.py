@@ -121,7 +121,7 @@ def get_cam_list(csv_file: str, required_fields: Optional[list] = None) -> Itera
         required_fields = ['ip', 'password']
 
     try:
-        with open(csv_file, 'r', encoding='utf-8') as fp:
+        with open(csv_file, 'r', encoding='utf-8-sig') as fp:
             # 检查文件是否为空
             first_line = fp.readline()
             if not first_line:
@@ -129,6 +129,7 @@ def get_cam_list(csv_file: str, required_fields: Optional[list] = None) -> Itera
             fp.seek(0)  # 重置文件指针
 
             reader = csv.DictReader(fp)
+            reader.fieldnames = [field.strip().lower() for field in reader.fieldnames]
 
             # 检查是否有表头
             if not reader.fieldnames:

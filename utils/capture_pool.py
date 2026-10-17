@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @author: sunliguo
 @contact: QQ376440229
@@ -7,13 +6,12 @@
 import csv
 import logging
 import os
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from lib.Camera import Camera
 from lib.OnvifClient import OnvifClient
-from utils.log_utils import is_paused, pause_event
+from utils.log_utils import pause_event
 from utils.tool import get_cam_list
 
 logger = logging.getLogger('camera_logger')
@@ -105,14 +103,7 @@ def capture_pool(csv_file, *args, **kwargs):
     # 2、逐个执行截图，支持暂停
     try:
         for caminfo in cam_list:
-            # 检查暂停标志 - 暂停时等待
-            while is_paused:
-                logger.info("⏸ 截图任务已暂停，点击'继续'恢复...")
-                pause_event.wait()  # 等待继续信号
-                if not is_paused:
-                    logger.info("▶ 截图任务继续执行")
-                    break
-                time.sleep(0.5)
+            pause_event.wait()
 
             try:
                 ip = caminfo.get('ip', 'unknown')
@@ -194,13 +185,18 @@ def onvif_pool(csv_file, *arg, **kwargs):
     logger.debug(f"csv文件：{cam_list}")
     try:
         futures_list = []
+
+        def capture_one(camera_info):
+            pause_event.wait()
+            return OnvifClient(**camera_info, **kwargs).Snapshot()
+
         with ThreadPoolExecutor() as pool:
             # results 是返回的结果列表
             # results = pool.map(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot(), cam_list)
             # futures_list = [pool.submit(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot()) for inkwargs in
             #                 cam_list]
             for item in cam_list:
-                future = pool.submit(lambda inkwargs: OnvifClient(**inkwargs, **kwargs).Snapshot(), item)
+                future = pool.submit(capture_one, item)
                 futures_list.append(future)
     except Exception as e:
         logger.error(f"在线程池执行中发生错误：{e}")

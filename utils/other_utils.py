@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @author: sunliguo
 @contact: QQ376440229
@@ -10,7 +9,7 @@ import os
 import time
 import tkinter as tk
 
-from PIL import ImageTk, Image
+from PIL import Image, ImageTk
 
 
 def display_image(image_path, main_window=None):

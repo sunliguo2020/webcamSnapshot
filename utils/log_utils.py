@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @author: sunliguo
 @contact: QQ376440229
@@ -10,9 +9,8 @@
 import logging
 import queue
 import threading
-from tkinter import END, N, S, W, E
+from tkinter import END
 from tkinter.scrolledtext import ScrolledText
-
 
 # 定义GUI操作队列（全局）
 gui_queue = queue.Queue()
@@ -31,6 +29,7 @@ def poll_gui_queue(root):
     @param root: tkinter 主窗口
     """
     from tkinter import messagebox
+
     from utils.other_utils import display_image
 
     while True:
@@ -44,6 +43,13 @@ def poll_gui_queue(root):
                 messagebox.showwarning(*args)
             elif task == "display_image":
                 display_image(*args)
+            elif task == "call":
+                try:
+                    args[0]()
+                except Exception:
+                    logging.getLogger('camera_logger').exception(
+                        "GUI callback failed"
+                    )
         except queue.Empty:
             break
     root.after(100, lambda: poll_gui_queue(root))

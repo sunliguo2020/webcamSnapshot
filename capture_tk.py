@@ -1,26 +1,28 @@
-# -*- coding: utf-8 -*-
 """
 @author: sunliguo
 @contact: QQ376440229
 @Created on: 2023-05-19 18:13
 摄像头批量截图的图形界面
-
-
 """
 
 import csv
-import logging
 import os
 import threading
 import tkinter as tk
-from tkinter import ttk, filedialog, DISABLED, NORMAL
+from tkinter import DISABLED, NORMAL, filedialog, ttk
+
 from PIL import Image, ImageTk
 
 # 导入抽离的工具类
-from utils.capture_pool import capture_pool, onvif_pool, batch_capture_computer_cameras
+from utils.capture_pool import batch_capture_computer_cameras, capture_pool, onvif_pool
 from utils.log_config import setup_logging
-from utils.log_utils import LogWidget, gui_queue, is_capturing, is_paused, pause_event, poll_gui_queue  # noqa: F401
-from utils.other_utils import open_folder, display_image, build_save_dir
+from utils.log_utils import (
+    LogWidget,
+    gui_queue,
+    pause_event,
+    poll_gui_queue,
+)
+from utils.other_utils import build_save_dir, open_folder
 from utils.tool import validate_csv_file
 
 # 初始化日志
@@ -63,6 +65,7 @@ class CameraSnapshotApp:
         self.watermark_var = tk.BooleanVar(value=True)
         self.temp_ip = tk.StringVar()
         self.temp_password = tk.StringVar()
+        self.capture_running = False
 
         # 控件引用
         self.csv_entry = None
@@ -322,8 +325,7 @@ class CameraSnapshotApp:
                 status, info = result
                 if status == 1:
                     logger.info(f"临时截图成功: {info}")
-                    # 弹窗显示截图
-                    self.root.after(0, lambda: self.show_preview_image(info))
+                    gui_queue.put(("call", (lambda: self.show_preview_image(info),)))
                 else:
                     logger.warning(f"临时截图失败: {info}")
                     gui_queue.put(("show_warning", ("截图失败", str(info))))
@@ -550,7 +552,7 @@ class CameraSnapshotApp:
     def _on_camera_type_changed(self, event):
         """摄像头类型选择回调"""
         if self.numberChosen.get() == '电脑':
-            self.csv_entry['state'] = 'disable'
+            self.csv_entry['state'] = 'disabled'
             self.csv_button['state'] = DISABLED
             self.preview_button['state'] = DISABLED
         else:
@@ -576,19 +578,14 @@ class CameraSnapshotApp:
 
     def _toggle_pause(self):
         """切换暂停/继续状态"""
-        global is_paused
-        if is_paused:
-            # 继续
-            is_paused = False
+        if pause_event.is_set():
+            pause_event.clear()
+            self.pause_button.config(text='▶ 继续', bg="#5CB85C")
+            logger.info("截图任务已暂停，等待当前任务完成后暂停")
+        else:
             pause_event.set()
             self.pause_button.config(text='⏸ 暂停', bg="#F0AD4E")
             logger.info("截图任务已恢复")
-        else:
-            # 暂停
-            is_paused = True
-            pause_event.clear()  # 清除事件，使 wait() 阻塞
-            self.pause_button.config(text='▶ 继续', bg="#5CB85C")
-            logger.info("截图任务已暂停，等待当前任务完成后暂停")
 
     def _disable_widgets(self):
         """禁用关键按钮"""
@@ -616,23 +613,9 @@ class CameraSnapshotApp:
 
     # ====================== 核心业务逻辑 ======================
 
-    def _start_capture(self):
+    def _start_capture(self, config):
         """开始截图（在子线程中执行）"""
-        global is_capturing
-        if is_capturing:
-            gui_queue.put(("show_warning", ("提示", "截图任务正在进行中，请稍后！")))
-            return
-        is_capturing = True
-
-        self._disable_widgets()
-
         try:
-            # 清空日志区和保存目录
-            self.console.clear_log()
-            self.select_dir.set('')
-
-            # 获取配置
-            config = self._get_capture_config()
             client_type = config['client_type']
             watermark_flag = config['watermark']
             csv_file = config["csv_file"]
@@ -653,12 +636,8 @@ class CameraSnapshotApp:
             self.save_dir = build_save_dir(
                 client_type, csv_file, config["save_base_dir"]
             )
-            self.select_dir.set(self.save_dir)
-
-            # 设置打开目录按钮
-            self.open_button.configure(
-                command=lambda: open_folder(self.save_dir, logger, gui_queue)
-            )
+            save_dir = self.save_dir
+            gui_queue.put(("call", (lambda: self._set_save_dir(save_dir),)))
 
             logger.info(f'摄像头类型：{client_type}')
             logger.info(f'截图保存路径：{self.save_dir}')
@@ -666,12 +645,15 @@ class CameraSnapshotApp:
 
             # 电脑摄像头直接截图
             if client_type == '电脑':
-                result = batch_capture_computer_cameras(folder_path=self.save_dir)
+                result = batch_capture_computer_cameras(
+                    folder_path=self.save_dir,
+                    is_water_mark=watermark_flag
+                )
                 logger.info(f"电脑多摄像头批量截图结果：{result}")
                 for cam_index, (status, file_path) in result.items():
                     if status == 1:
                         logger.debug(f"显示摄像头{cam_index}的截图:{file_path}")
-                        self.root.after(0, lambda fp=file_path: self.show_preview_image(fp))
+                        gui_queue.put(("call", (lambda fp=file_path: self.show_preview_image(fp),)))
                 return
 
             # 网络摄像头截图
@@ -692,12 +674,39 @@ class CameraSnapshotApp:
             logger.error(f"截图任务异常:{str(e)}")
             gui_queue.put(("show_error", ("错误", str(e))))
         finally:
-            is_capturing = False
-            self._restore_widgets()
+            pause_event.set()
+            gui_queue.put(("call", (self._finish_capture,)))
+
+    def _set_save_dir(self, save_dir):
+        """在 GUI 线程更新保存目录和打开目录按钮"""
+        self.save_dir = save_dir
+        self.select_dir.set(save_dir)
+        self.open_button.configure(
+            command=lambda: open_folder(save_dir, logger, gui_queue)
+        )
+
+    def _finish_capture(self):
+        """在 GUI 线程恢复截图控件"""
+        self.capture_running = False
+        self._restore_widgets()
 
     def _run_capture_thread(self):
         """在子线程中启动截图"""
-        threading.Thread(target=self._start_capture, daemon=True).start()
+        if self.capture_running:
+            gui_queue.put(("show_warning", ("提示", "截图任务正在进行中，请稍后！")))
+            return
+
+        config = self._get_capture_config()
+        self.capture_running = True
+        self._disable_widgets()
+        self.console.clear_log()
+        self.select_dir.set('')
+        pause_event.set()
+        threading.Thread(
+            target=self._start_capture,
+            args=(config,),
+            daemon=True
+        ).start()
 
     def run(self):
         """运行主循环"""
