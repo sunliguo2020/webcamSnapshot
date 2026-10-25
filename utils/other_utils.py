@@ -81,6 +81,7 @@ def build_save_dir(client_type, csv_file, base_dir):
     构建保存文件的目录
     截图保存路径 或 保存截图的文件夹默认是 csv文件名 + 当前日期
     保存截图的文件夹默认是 csv文件名 + 当前日期,设置保存截图的文件夹的默认值
+    如果 base_dir 是本函数上次生成的目录，则从原始基础目录继续创建。
     @param client_type: 摄像头类型（"电脑" 或其他）
     @param csv_file: CSV文件路径
     @param base_dir: 用户指定的基础目录（可为空）
@@ -93,9 +94,30 @@ def build_save_dir(client_type, csv_file, base_dir):
             os.path.basename(csv_file)
         )[0]
 
-    default_base_dir = (
-        base_dir or os.path.join(os.getcwd(), basename)
-    )
+    default_base_dir = base_dir or os.path.join(os.getcwd(), basename)
+
+    if base_dir:
+        normalized_base_dir = os.path.normpath(base_dir)
+        previous_time_dir = os.path.basename(normalized_base_dir)
+        previous_date_dir = os.path.basename(os.path.dirname(normalized_base_dir))
+        try:
+            is_previous_save_dir = (
+                time.strftime(
+                    '%Y-%m-%d_%H-%M-%S',
+                    time.strptime(previous_time_dir, '%Y-%m-%d_%H-%M-%S')
+                ) == previous_time_dir
+                and time.strftime(
+                    '%Y-%m-%d',
+                    time.strptime(previous_date_dir, '%Y-%m-%d')
+                ) == previous_date_dir
+            )
+        except ValueError:
+            is_previous_save_dir = False
+
+        if is_previous_save_dir:
+            default_base_dir = os.path.dirname(
+                os.path.dirname(normalized_base_dir)
+            )
 
     date_dir = time.strftime('%Y-%m-%d')
     time_dir = time.strftime('%Y-%m-%d_%H-%M-%S')
