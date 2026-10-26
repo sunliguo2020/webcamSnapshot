@@ -642,6 +642,7 @@ class CameraSnapshotApp:
             self.save_dir = build_save_dir(
                 client_type, csv_file, config["save_base_dir"]
             )
+            # 在 GUI 线程更新保存目录和打开目录按钮
             save_dir = self.save_dir
             gui_queue.put(("call", (lambda: self._set_save_dir(save_dir),)))
 
@@ -710,9 +711,8 @@ class CameraSnapshotApp:
             gui_queue.put(("call", (self._finish_capture,)))
 
     def _set_save_dir(self, save_dir):
-        """在 GUI 线程更新保存目录和打开目录按钮"""
+        """在 GUI 线程更新本次实际保存目录和打开目录按钮"""
         self.save_dir = save_dir
-        self.select_dir.set(save_dir)
         self.open_button.configure(
             command=lambda: open_folder(save_dir, logger, gui_queue)
         )
@@ -732,7 +732,6 @@ class CameraSnapshotApp:
         self.capture_running = True
         self._disable_widgets()
         self.console.clear_log()
-        self.select_dir.set('')
         pause_event.set()
         threading.Thread(
             target=self._start_capture,
