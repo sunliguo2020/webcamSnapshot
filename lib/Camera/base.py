@@ -89,11 +89,15 @@ class Camera:
         @param folder_path:
         @param is_water_mark:
         """
-        logger.debug(f"__init__参数:ip:{ip},"
-                     f"username:{username},"
-                     f"password:{password},"
-                     f"onvif_port:{onvif_port},"
-                     f"cam_index:{cam_index}")
+        logger.debug(
+            "__init__参数:ip:%s,username:%s,password_set:%s,"
+            "onvif_port:%s,cam_index:%s",
+            ip,
+            username,
+            bool(password),
+            onvif_port,
+            cam_index,
+        )
 
         self.onvif_port = onvif_port
         self.username = username
@@ -183,10 +187,46 @@ class Camera:
             camera_path = self.camera_path
             timings[stage_name] = time.perf_counter() - stage_started
 
-            stage_name = "打开视频流"
+            stage_name = (
+                "打开本地设备"
+                if self.camera_type == "computer"
+                else "打开视频流"
+            )
             stage_started = time.perf_counter()
             if self.camera_type == "computer":
-                cam = cv2.VideoCapture(camera_path)
+                cam = cv2.VideoCapture(camera_path, cv2.CAP_DSHOW)
+                if not cam.isOpened():
+                    cam.release()
+                    logger.debug(
+                        "%s DirectShow 打开失败，回退默认视频后端",
+                        cam_desc,
+                    )
+                    cam = cv2.VideoCapture(camera_path)
+                if not cam.isOpened():
+                    raise RuntimeError("无法打开本地摄像头")
+                timings[stage_name] = time.perf_counter() - stage_started
+
+                stage_name = "设置分辨率"
+                stage_started = time.perf_counter()
+                cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+                actual_width = int(cam.get(cv2.CAP_PROP_FRAME_WIDTH))
+                actual_height = int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                logger.debug(
+                    "%s 实际采集分辨率：%sx%s",
+                    cam_desc,
+                    actual_width,
+                    actual_height,
+                )
+                timings[stage_name] = time.perf_counter() - stage_started
+
+                stage_name = "预热帧"
+                stage_started = time.perf_counter()
+                for _ in range(2):
+                    ret, _ = cam.read()
+                    if not ret:
+                        raise RuntimeError("读取摄像头预热帧失败")
+                timings[stage_name] = time.perf_counter() - stage_started
             else:
                 cam = cv2.VideoCapture(
                     camera_path,
@@ -198,15 +238,6 @@ class Camera:
                         self.VIDEO_READ_TIMEOUT_MS,
                     ],
                 )
-            # 优化：摄像头添加缓冲区设置，提高截图质量
-            if self.camera_type == "computer":
-                cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-                cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-                # 丢弃前两帧，使用摄像头稳定后的画面。
-                for _ in range(2):
-                    ret, _ = cam.read()
-                    if not ret:
-                        raise RuntimeError("读取摄像头预热帧失败")
             if not cam.isOpened():
                 raise RuntimeError("视频对象读取失败")
             logger.debug("%s 摄像头打开成功", cam_desc)
