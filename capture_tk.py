@@ -6,6 +6,7 @@
 """
 
 import csv
+import logging
 import os
 import threading
 import tkinter as tk
@@ -25,8 +26,7 @@ from utils.log_utils import (
 from utils.other_utils import build_save_dir, open_folder
 from utils.tool import get_cam_list
 
-# 初始化日志
-logger = setup_logging()
+logger = logging.getLogger("camera_logger")
 
 
 class CameraSnapshotApp:
@@ -745,5 +745,6 @@ class CameraSnapshotApp:
 
 
 if __name__ == '__main__':
+    setup_logging()
     app = CameraSnapshotApp()
     app.run()
