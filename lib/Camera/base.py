@@ -101,6 +101,7 @@ class Camera:
         self.password = password
         self.camera_type = camera_type
         self.frame = None
+        self.last_timings = {}
         # 是否添加水印
         self.is_water_mark = is_water_mark
 
@@ -156,6 +157,14 @@ class Camera:
         else:
             cam_desc = self.ip or "未指定IP的网络摄像头"
 
+        capture_started = time.perf_counter()
+        stage_started = capture_started
+        stage_name = (
+            "RTSP端口检测"
+            if self.camera_type != "computer"
+            else "本地设备检测"
+        )
+        timings = {}
         logger.debug("ip:%s开始截图", cam_desc)
         cam = None
         try:
@@ -163,12 +172,19 @@ class Camera:
                 err_msg = f"{cam_desc} 554端口不可达/摄像头离线"
                 logger.debug(err_msg)
                 return -1, err_msg
+            timings[stage_name] = time.perf_counter() - stage_started
 
+            stage_name = "准备流地址"
+            stage_started = time.perf_counter()
             if self.file_full_path is None:
                 self.file_full_path = os.path.join(self.folder_path, self.file_name)
 
             # 获取摄像头视频帧
             camera_path = self.camera_path
+            timings[stage_name] = time.perf_counter() - stage_started
+
+            stage_name = "打开视频流"
+            stage_started = time.perf_counter()
             if self.camera_type == "computer":
                 cam = cv2.VideoCapture(camera_path)
             else:
@@ -194,21 +210,34 @@ class Camera:
             if not cam.isOpened():
                 raise RuntimeError("视频对象读取失败")
             logger.debug("%s 摄像头打开成功", cam_desc)
+            timings[stage_name] = time.perf_counter() - stage_started
 
+            stage_name = "读取首帧"
+            stage_started = time.perf_counter()
             ret, self.frame = cam.read()
             if not ret or self.frame is None:
                 raise RuntimeError("读取摄像头桢数据失败，画面为空")
+            timings[stage_name] = time.perf_counter() - stage_started
 
             if self.is_water_mark:
+                stage_name = "添加水印"
+                stage_started = time.perf_counter()
                 self.watermark()
+                timings[stage_name] = time.perf_counter() - stage_started
 
+            stage_name = "JPEG编码"
+            stage_started = time.perf_counter()
             encoded_ok, encoded_image = cv2.imencode('.jpg', self.frame)
             if not encoded_ok or encoded_image is None:
                 return -2, "JPEG 图像编码失败"
+            timings[stage_name] = time.perf_counter() - stage_started
 
+            stage_name = "写入文件"
+            stage_started = time.perf_counter()
             encoded_image.tofile(self.file_full_path)
             if not os.path.isfile(self.file_full_path) or os.path.getsize(self.file_full_path) == 0:
                 return -2, "截图保存失败或文件为空"
+            timings[stage_name] = time.perf_counter() - stage_started
 
             logger.debug("截图成功,文件路径：%s", self.file_full_path)
             return 1, self.file_full_path
@@ -220,11 +249,27 @@ class Camera:
 
         finally:
             if cam is not None:
+                release_started = time.perf_counter()
                 try:
                     cam.release()
                 except Exception:
                     logger.exception("释放摄像头资源失败: %s", cam_desc)
+                timings["释放视频流"] = time.perf_counter() - release_started
             self.frame = None
+            if stage_name not in timings:
+                timings[stage_name] = time.perf_counter() - stage_started
+            timings["总耗时"] = time.perf_counter() - capture_started
+            self.last_timings = timings
+            stage_details = " ".join(
+                f"{name}={elapsed:.3f}s"
+                for name, elapsed in timings.items()
+            )
+            logger.info(
+                "[耗时] 摄像头截图 IP=%s 类型=%s %s",
+                cam_desc,
+                self.camera_type,
+                stage_details,
+            )
 
     def check_camera(self) -> bool:
         """

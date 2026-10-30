@@ -9,6 +9,7 @@ import csv
 import logging
 import os
 import threading
+import time
 import tkinter as tk
 from tkinter import DISABLED, NORMAL, filedialog, ttk
 
@@ -615,6 +616,8 @@ class CameraSnapshotApp:
 
     def _start_capture(self, config):
         """开始截图（在子线程中执行）"""
+        task_started = time.perf_counter()
+        client_type = 'unknown'
         try:
             client_type = config['client_type']
             watermark_flag = config['watermark']
@@ -634,13 +637,26 @@ class CameraSnapshotApp:
                     raise FileNotFoundError("CSV文件不存在，请重新选择")
                 if not csv_file.lower().endswith('.csv'):
                     raise ValueError("请选择 CSV 文件")
+                csv_started = time.perf_counter()
                 camera_records = list(get_cam_list(csv_file))
+                logger.info(
+                    "[耗时] CSV读取 文件=%s 有效记录=%d 耗时=%.3fs",
+                    csv_file,
+                    len(camera_records),
+                    time.perf_counter() - csv_started,
+                )
                 if not camera_records:
                     raise ValueError("CSV 中没有有效的摄像头记录")
 
             # 构建保存目录
+            directory_started = time.perf_counter()
             self.save_dir = build_save_dir(
                 client_type, csv_file, config["save_base_dir"]
+            )
+            logger.info(
+                "[耗时] 创建保存目录 类型=%s 耗时=%.3fs",
+                client_type,
+                time.perf_counter() - directory_started,
             )
             # 在 GUI 线程更新保存目录和打开目录按钮
             save_dir = self.save_dir
@@ -707,6 +723,11 @@ class CameraSnapshotApp:
             logger.error(f"截图任务异常:{str(e)}")
             gui_queue.put(("show_error", ("错误", str(e))))
         finally:
+            logger.info(
+                "[耗时] 截图任务结束 类型=%s 总耗时=%.3fs",
+                client_type,
+                time.perf_counter() - task_started,
+            )
             pause_event.set()
             gui_queue.put(("call", (self._finish_capture,)))
 

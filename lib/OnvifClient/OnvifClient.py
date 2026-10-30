@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from datetime import datetime
 from urllib.parse import quote
 
@@ -66,9 +67,18 @@ class OnvifClient(object):
         self.port = port
         self.username = username
         self.password = password
+        self.last_timings = {}
         #  创建 onvif-zeep soap客户端
         # ONVIFCamera instance
-        result = checkPwdAndGetCam(self.ip, self.port, self.username, self.password)
+        connection_started = time.perf_counter()
+        try:
+            result = checkPwdAndGetCam(
+                self.ip, self.port, self.username, self.password
+            )
+        finally:
+            elapsed = time.perf_counter() - connection_started
+            self.last_timings["ONVIF连接和配置"] = elapsed
+            logger.info("[耗时] ONVIF连接 IP=%s 耗时=%.3fs", self.ip, elapsed)
         # 获取媒体配置信息 例如：主码流 辅码流  第三码流
         self.profiles = result['profiles']
         logger.debug(f"self.profiles:{self.profiles}")
@@ -147,49 +157,72 @@ class OnvifClient(object):
         :return:
         @type file_dir: string
         """
-        # 在尝试使用media属性之前，确保已经连接到相机
-        if not self.media:
-            logger.error('无法连接到相机，无法拍摄快照')
-            return False
-        # 如果没有传入保存的目录，则使用默认的保存目录
-        if file_dir is not None:
-            if not os.path.isdir(file_dir):
-                os.makedirs(file_dir)
+        snapshot_started = time.perf_counter()
+        stage_name = "获取快照地址"
+        stage_started = snapshot_started
+        timings = {}
+        try:
+            # 在尝试使用media属性之前，确保已经连接到相机
+            if not self.media:
+                logger.error('无法连接到相机，无法拍摄快照')
+                return False
+            # 如果没有传入保存的目录，则使用默认的保存目录
+            if file_dir is not None:
+                if not os.path.isdir(file_dir):
+                    os.makedirs(file_dir)
 
-            file_path = os.path.join(file_dir, self.getFileName())
-        else:
-            file_path = self.getFilePath()
-        """
-        res:
-        {
-            'Uri': 'http://192.168.1.50/onvif-http/snapshot?Profile_1',
-            'InvalidAfterConnect': False,
-            'InvalidAfterReboot': False,
-            'Timeout': datetime.timedelta(0),
-            '_value_1': None,
-            '_attr_1': None
-        }
-        """
-        res = self.media.GetSnapshotUri({'ProfileToken': self.media_profile.token})
+                file_path = os.path.join(file_dir, self.getFileName())
+            else:
+                file_path = self.getFilePath()
+            """
+            res:
+            {
+                'Uri': 'http://192.168.1.50/onvif-http/snapshot?Profile_1',
+                'InvalidAfterConnect': False,
+                'InvalidAfterReboot': False,
+                'Timeout': datetime.timedelta(0),
+                '_value_1': None,
+                '_attr_1': None
+            }
+            """
+            res = self.media.GetSnapshotUri(
+                {'ProfileToken': self.media_profile.token}
+            )
+            timings[stage_name] = time.perf_counter() - stage_started
 
-        logger.debug(f"抓图url res:{res}")
+            logger.debug(f"抓图url res:{res}")
+            logger.debug(f"media_profile.token:{self.media_profile.token}")
+            logger.debug(f"准备登录res.Uri:{res.Uri}")
 
-        logger.debug(f"media_profile.token:{self.media_profile.token}")
-        logger.debug(f"准备登录res.Uri:{res.Uri}")
+            stage_name = "下载快照"
+            stage_started = time.perf_counter()
+            response = requests.get(
+                res.Uri,
+                auth=HTTPDigestAuth(self.username, self.password),
+                timeout=(5, 10),
+            )
+            timings[stage_name] = time.perf_counter() - stage_started
 
-        # 登录认证截图
-        response = requests.get(
-            res.Uri,
-            auth=HTTPDigestAuth(self.username, self.password),
-            timeout=(5, 10),
-        )
+            stage_name = "保存快照"
+            stage_started = time.perf_counter()
+            with open(file_path, 'wb') as f:
+                f.write(response.content)
+            timings[stage_name] = time.perf_counter() - stage_started
 
-        with open(file_path, 'wb') as f:  # 保存截图
-            f.write(response.content)
-
-        logger.debug("保存截图成功：%s" % file_path)
-
-        return file_path
+            logger.debug("保存截图成功：%s", file_path)
+            return file_path
+        finally:
+            if stage_name not in timings:
+                timings[stage_name] = time.perf_counter() - stage_started
+            timings["ONVIF快照总耗时"] = (
+                time.perf_counter() - snapshot_started
+            )
+            self.last_timings.update(timings)
+            stage_details = " ".join(
+                f"{name}={elapsed:.3f}s"
+                for name, elapsed in timings.items()
+            )
+            logger.info("[耗时] ONVIF快照 IP=%s %s", self.ip, stage_details)
 
     def Snapshot_resize(self, file_dir='data', size=None):
         """
