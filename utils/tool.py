@@ -14,15 +14,16 @@ from typing import Dict, Optional
 logger = logging.getLogger('camera_logger')
 
 
-def is_port_open(ip, port):
+def is_port_open(ip, port, timeout=1):
     """
     检测某个ip地址的端口是否开启
     :param ip:
     :param port:
+    :param timeout: 连接超时时间（秒）
     :return:
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(1)
+    sock.settimeout(timeout)
     try:
         state = sock.connect_ex((ip, port))
         return state == 0

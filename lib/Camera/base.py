@@ -55,7 +55,8 @@ class Camera:
     或者通过onvif协议获取rtsp的地址
     """
     RTSP_PORT = 554  # RTSP默认端口
-    VIDEO_OPEN_TIMEOUT_MS = 5000
+    PORT_CHECK_TIMEOUT = 0.5
+    VIDEO_OPEN_TIMEOUT_MS = 3000
     VIDEO_READ_TIMEOUT_MS = 5000
 
     def __init__(
@@ -246,7 +247,11 @@ class Camera:
         logger.debug(f"开始检测网络摄像头可用性，IP: {self.ip}")
 
         try:
-            if not is_port_open(self.ip, self.RTSP_PORT):
+            if not is_port_open(
+                self.ip,
+                self.RTSP_PORT,
+                timeout=self.PORT_CHECK_TIMEOUT,
+            ):
                 logger.warning(f"摄像头 {self.ip} 的554端口不可达")
                 return False
 
