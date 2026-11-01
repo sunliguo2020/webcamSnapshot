@@ -54,6 +54,8 @@ pip install requests
 python make.py
 ```
 
+如需减小 exe 体积，可在打包环境安装 UPX 并将其加入 `PATH`；PyInstaller 会自动压缩支持的二进制文件。未安装 UPX 时，打包仍可正常进行。UPX 压缩可能触发部分杀毒软件误报。
+
 ## 更新日志
 
 详见 [CHANGELOG.md](CHANGELOG.md)

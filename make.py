@@ -20,7 +20,6 @@ subprocess.run(
         "--clean",
         "-F",
         "-w",
-        "--noupx",
         "-i",
         os.path.join(project_dir, "cam_capture.ico"),
         "--add-data",
