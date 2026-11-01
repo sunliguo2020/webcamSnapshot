@@ -10,7 +10,10 @@ import time
 import tkinter as tk
 from urllib.parse import quote
 
-os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rw_timeout;5000000")
+os.environ.setdefault(
+    "OPENCV_FFMPEG_CAPTURE_OPTIONS",
+    "rtsp_transport;tcp|stimeout;5000000|rw_timeout;5000000",
+)
 
 import cv2
 from PIL import Image, ImageTk
