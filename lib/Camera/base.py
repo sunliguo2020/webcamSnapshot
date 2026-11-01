@@ -190,11 +190,12 @@ class Camera:
             camera_path = self.camera_path
             timings[stage_name] = time.perf_counter() - stage_started
 
-            stage_name = (
+            open_stage_name = (
                 "打开本地设备"
                 if self.camera_type == "computer"
                 else "打开视频流"
             )
+            stage_name = open_stage_name
             stage_started = time.perf_counter()
             if self.camera_type == "computer":
                 cam = cv2.VideoCapture(camera_path, cv2.CAP_DSHOW)
@@ -242,7 +243,18 @@ class Camera:
                     ],
                 )
             if not cam.isOpened():
-                raise RuntimeError("视频对象读取失败")
+                open_elapsed = time.perf_counter() - stage_started
+                backend = (
+                    "FFMPEG"
+                    if self.camera_type != "computer"
+                    else "DirectShow/默认后端"
+                )
+                raise RuntimeError(
+                    "视频对象读取失败 "
+                    f"(backend={backend}, is_opened=False, "
+                    f"open_elapsed={open_elapsed:.3f}s, "
+                    f"open_timeout_ms={self.VIDEO_OPEN_TIMEOUT_MS})"
+                )
             logger.debug("%s 摄像头打开成功", cam_desc)
             timings[stage_name] = time.perf_counter() - stage_started
 
@@ -250,7 +262,38 @@ class Camera:
             stage_started = time.perf_counter()
             ret, self.frame = cam.read()
             if not ret or self.frame is None:
-                raise RuntimeError("读取摄像头桢数据失败，画面为空")
+                read_elapsed = time.perf_counter() - stage_started
+                is_opened = cam.isOpened()
+                backend = cam.getBackendName() if is_opened else "closed"
+                width = cam.get(cv2.CAP_PROP_FRAME_WIDTH)
+                height = cam.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                fps = cam.get(cv2.CAP_PROP_FPS)
+                fourcc = int(cam.get(cv2.CAP_PROP_FOURCC))
+                codec = "".join(
+                    chr((fourcc >> (8 * index)) & 0xFF)
+                    for index in range(4)
+                ).strip("\x00 ")
+                if not codec or not codec.isprintable():
+                    codec = f"0x{fourcc:08x}" if fourcc else "unknown"
+                diagnostics = (
+                    f"ret={ret}, frame_is_none={self.frame is None}, "
+                    f"is_opened={is_opened}, backend={backend}, "
+                    f"stream_size={width:.0f}x{height:.0f}, fps={fps:.2f}, "
+                    f"fourcc={codec}, "
+                    f"open_elapsed={timings.get(open_stage_name, 0.0):.3f}s, "
+                    f"read_elapsed={read_elapsed:.3f}s, "
+                    f"open_timeout_ms={self.VIDEO_OPEN_TIMEOUT_MS}, "
+                    f"read_timeout_ms={self.VIDEO_READ_TIMEOUT_MS}"
+                )
+                logger.warning(
+                    "读取摄像头首帧失败诊断 IP=%s 类型=%s %s",
+                    cam_desc,
+                    self.camera_type,
+                    diagnostics,
+                )
+                raise RuntimeError(
+                    f"读取摄像头桢数据失败，画面为空 ({diagnostics})"
+                )
             timings[stage_name] = time.perf_counter() - stage_started
 
             if self.is_water_mark:
@@ -282,6 +325,8 @@ class Camera:
             return -3, err_info
 
         finally:
+            if stage_name not in timings:
+                timings[stage_name] = time.perf_counter() - stage_started
             if cam is not None:
                 release_started = time.perf_counter()
                 try:
@@ -290,8 +335,6 @@ class Camera:
                     logger.exception("释放摄像头资源失败: %s", cam_desc)
                 timings["释放视频流"] = time.perf_counter() - release_started
             self.frame = None
-            if stage_name not in timings:
-                timings[stage_name] = time.perf_counter() - stage_started
             timings["总耗时"] = time.perf_counter() - capture_started
             self.last_timings = timings
             stage_details = " ".join(
