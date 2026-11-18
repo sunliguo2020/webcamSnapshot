@@ -11,14 +11,31 @@ import time
 
 project_dir = os.path.dirname(os.path.abspath(__file__))
 
-# 打包 main.py（推荐，因为 main.py 中先配置了日志再导入 capture_tk）
+def select_build_mode():
+    """Prompt for a PyInstaller build mode."""
+    while True:
+        print("请选择打包模式：")
+        print("1. 单文件版（运行时会解压依赖）")
+        print("2. 目录版（推荐，需交付整个文件夹）")
+        choice = input("请输入 1 或 2: ").strip()
+        if choice == "1":
+            return "--onefile", "单文件版"
+        if choice == "2":
+            return "--onedir", "目录版"
+        print("输入无效，请输入 1 或 2。\n")
+
+
+build_option, build_suffix = select_build_mode()
+
 subprocess.run(
     [
         sys.executable,
         "-m",
         "PyInstaller",
         "--clean",
-        "-F",
+        "--noconfirm",
+        build_option,
+        "--noupx",
         "-w",
         "-i",
         os.path.join(project_dir, "cam_capture.ico"),
@@ -27,7 +44,10 @@ subprocess.run(
         "--paths",
         project_dir,
         "-n",
-        f'摄像头批量截图_{time.strftime("%Y%m%d", time.localtime())}',
+        (
+            f'摄像头批量截图_'
+            f'{time.strftime("%Y%m%d", time.localtime())}_{build_suffix}'
+        ),
         os.path.join(project_dir, "main.py"),
     ],
     cwd=project_dir,
