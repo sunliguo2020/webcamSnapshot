@@ -62,7 +62,14 @@ def _read_fields(ip, port, path, params, username, password, label):
     except (PermissionError, requests.RequestException, ValueError) as error:
         logger.warning("读取大华设备%s失败 IP=%s：%s", label, ip, error)
         return []
-    return _parse_fields(response_text)
+    fields = _parse_fields(response_text)
+    if response_text and not fields:
+        logger.warning(
+            "大华设备%s响应中没有可解析的 key=value 字段 IP=%s",
+            label,
+            ip,
+        )
+    return fields
 
 
 def get_dahua_device_info(ip, username, password, port=80):
@@ -121,14 +128,26 @@ def get_dahua_device_info(ip, username, password, port=80):
         "MAC 地址",
     )
     mac_address = _find_field(
-        network_fields, {"mac", "macaddress", "hardwareaddress"}
+        network_fields,
+        {
+            "mac",
+            "macaddr",
+            "macaddress",
+            "hardwareaddress",
+            "physicaladdress",
+            "ethernetaddress",
+        },
     )
     if not model:
         logger.warning("大华设备未返回型号 IP=%s", ip)
     if not serial_number:
         logger.warning("大华设备未返回序列号 IP=%s", ip)
     if not mac_address:
-        logger.warning("大华设备网络配置未返回 MAC 地址 IP=%s", ip)
+        logger.warning(
+            "大华设备网络配置未返回 MAC 地址 IP=%s，返回字段名=%s",
+            ip,
+            [key for key, _ in network_fields[:30]],
+        )
 
     return {
         "model": model,

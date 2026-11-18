@@ -7,9 +7,12 @@ import errno
 import logging
 import os
 import time
+from functools import lru_cache
 from string import Formatter
 import tkinter as tk
 from urllib.parse import quote
+
+import numpy as np
 
 os.environ.setdefault(
     "OPENCV_FFMPEG_CAPTURE_OPTIONS",
@@ -17,7 +20,7 @@ os.environ.setdefault(
 )
 
 import cv2
-from PIL import Image, ImageTk
+from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from lib.OnvifClient import OnvifClient
 from utils.dahua_device_info import get_dahua_device_info
@@ -25,6 +28,23 @@ from utils.tool import is_port_open
 from utils.watermark import normalize_watermark_style
 
 logger = logging.getLogger('camera_logger')
+
+
+@lru_cache(maxsize=8)
+def _load_chinese_font(font_size):
+    """Load an installed Windows font that includes Chinese glyphs."""
+    fonts_dir = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
+    for filename in ("msyh.ttc", "simhei.ttf", "simsun.ttc"):
+        font_path = os.path.join(fonts_dir, filename)
+        if os.path.isfile(font_path):
+            try:
+                return ImageFont.truetype(font_path, font_size)
+            except OSError:
+                continue
+    raise OSError(
+        "未找到支持中文水印的字体，请安装微软雅黑、黑体或宋体"
+    )
+
 
 def display_image(image_path):
     """
@@ -452,22 +472,53 @@ class Camera:
         available_height = max(1, img_height - margin * 2)
         font_scale = max(0.3, min(img_width / 1200, 2.0))
         font_scale *= style["font_scale"]
-        font_face = getattr(cv2, style["font"])
+        use_pillow = any(not line.isascii() for line in lines)
+        font_face = None if use_pillow else getattr(cv2, style["font"])
 
         def measure_lines():
             thickness = max(round(font_scale * 2), 1)
-            sizes = [
-                cv2.getTextSize(line or " ", font_face, font_scale, thickness)
-                for line in lines
-            ]
+            pillow_font = None
+            if use_pillow:
+                pillow_font = _load_chinese_font(
+                    max(8, round(font_scale * 24))
+                )
+                sizes = []
+                ascent = 0
+                descent = 0
+                for line in lines:
+                    bounds = pillow_font.getbbox(line or " ", anchor="ls")
+                    width = bounds[2] - bounds[0]
+                    line_ascent = max(0, -bounds[1])
+                    line_descent = max(0, bounds[3])
+                    ascent = max(ascent, line_ascent)
+                    descent = max(descent, line_descent)
+                    sizes.append(
+                        (
+                            (width, line_ascent + line_descent),
+                            line_descent,
+                        )
+                    )
+                text_height = ascent
+                baseline = descent
+            else:
+                sizes = [
+                    cv2.getTextSize(
+                        line or " ", font_face, font_scale, thickness
+                    )
+                    for line in lines
+                ]
+                text_height = max(size[0][1] for size in sizes)
+                baseline = max(size[1] for size in sizes)
             max_width = max(
                 (size[0][0] for line, size in zip(lines, sizes) if line),
                 default=0,
             )
-            text_height = max(size[0][1] for size in sizes)
-            baseline = max(size[1] for size in sizes)
-            line_spacing = text_height + baseline + max(
-                2, round(font_scale * 2)
+            line_spacing = (
+                text_height
+                + baseline
+                + max(2, round(font_scale * 2))
+                + thickness
+                + 3
             )
             block_height = (
                 text_height + (len(lines) - 1) * line_spacing + baseline
@@ -480,6 +531,7 @@ class Camera:
                 baseline,
                 line_spacing,
                 block_height,
+                pillow_font,
             )
 
         for _ in range(2):
@@ -491,6 +543,7 @@ class Camera:
                 baseline,
                 line_spacing,
                 block_height,
+                pillow_font,
             ) = measure_lines()
             scale_factor = min(
                 1.0,
@@ -509,6 +562,7 @@ class Camera:
             baseline,
             line_spacing,
             block_height,
+            pillow_font,
         ) = measure_lines()
 
         vertical_position, horizontal_position = style["position"].split("_")
@@ -525,6 +579,18 @@ class Camera:
                 int(hex_color[index:index + 2], 16)
                 for index in (5, 3, 1)
             )
+
+        def rgb_color(hex_color):
+            return tuple(
+                int(hex_color[index:index + 2], 16)
+                for index in (1, 3, 5)
+            )
+
+        if use_pillow:
+            pillow_image = Image.fromarray(
+                cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+            )
+            pillow_draw = ImageDraw.Draw(pillow_image)
 
         for line_index, line in enumerate(lines):
             if not line:
@@ -543,25 +609,41 @@ class Camera:
                 min(y, max(text_height, img_height - baseline)),
             )
 
-            cv2.putText(
-                self.frame,
-                line,
-                (x, y),
-                font_face,
-                font_scale,
-                bgr_color(style["outline_color"]),
-                thickness + 4,
-                cv2.LINE_AA
-            )
-            cv2.putText(
-                self.frame,
-                line,
-                (x, y),
-                font_face,
-                font_scale,
-                bgr_color(style["color"]),
-                thickness,
-                cv2.LINE_AA
+            if use_pillow:
+                pillow_draw.text(
+                    (x, y),
+                    line,
+                    font=pillow_font,
+                    fill=rgb_color(style["color"]),
+                    anchor="ls",
+                    stroke_width=thickness + 1,
+                    stroke_fill=rgb_color(style["outline_color"]),
+                )
+            else:
+                cv2.putText(
+                    self.frame,
+                    line,
+                    (x, y),
+                    font_face,
+                    font_scale,
+                    bgr_color(style["outline_color"]),
+                    thickness + 4,
+                    cv2.LINE_AA
+                )
+                cv2.putText(
+                    self.frame,
+                    line,
+                    (x, y),
+                    font_face,
+                    font_scale,
+                    bgr_color(style["color"]),
+                    thickness,
+                    cv2.LINE_AA
+                )
+
+        if use_pillow:
+            self.frame[:] = cv2.cvtColor(
+                np.asarray(pillow_image), cv2.COLOR_RGB2BGR
             )
 
     @property

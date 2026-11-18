@@ -20,6 +20,7 @@
 
 水印样式会自动保存；运行源码时保存在 `config/watermark.json`，打包版保存在用户的 `%APPDATA%\webcamSnapshot` 目录。
 水印设置中可逐行编辑和删除文字，也可从常用数据列表添加文件名、IP、时间、摄像头信息、型号、MAC 或序列号。每行支持 `{filename}`、`{ip}`、`{time}`、`{camera_type}`、`{camera_index}`、`{model}`、`{mac}`、`{serial_number}` 或 `{serial}` 等模板字段；仅在模板使用设备型号、MAC 或序列号时访问大华设备管理接口，无法获取的字段显示为 `N/A`。
+中文水印使用运行电脑安装的微软雅黑、黑体或宋体字体。
 
 运行 `python make.py` 后可选择生成单文件版或目录版。发布目录版时，请将 `dist` 下带有“目录版”后缀的整个文件夹打包并在目标电脑解压，不要只复制其中的 EXE。
 

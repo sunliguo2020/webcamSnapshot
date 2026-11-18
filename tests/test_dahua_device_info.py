@@ -5,7 +5,7 @@ import requests
 import numpy as np
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
-from lib.Camera.base import Camera
+from lib.Camera.base import Camera, _load_chinese_font
 from utils.dahua_device_info import _request_text, get_dahua_device_info
 from utils.watermark import normalize_watermark_style
 
@@ -41,6 +41,23 @@ class DahuaDeviceInfoTests(unittest.TestCase):
         })
         self.assertEqual(get.call_count, 2)
         self.assertEqual(get.call_args_list[0].args[0], "http://192.0.2.10:8080/cgi-bin/magicBox.cgi")
+
+    @patch("utils.dahua_device_info.requests.get")
+    def test_reads_macaddr_key_variant(self, get):
+        get.side_effect = [
+            response_with_text(
+                "deviceType=IPC-TEST\nserialNumber=SN-123"
+            ),
+            response_with_text(
+                "table.Network.eth0.MACAddr=AA:BB:CC:DD:EE:FF"
+            ),
+        ]
+
+        info = get_dahua_device_info(
+            "192.0.2.10", "admin", "secret"
+        )
+
+        self.assertEqual(info["mac"], "AA:BB:CC:DD:EE:FF")
 
     @patch("utils.dahua_device_info.requests.get")
     def test_falls_back_to_individual_magicbox_values(self, get):
@@ -136,6 +153,19 @@ class DahuaDeviceInfoTests(unittest.TestCase):
             np.flatnonzero(np.diff(nonempty_rows) > 2) + 1,
         )
         self.assertEqual(len(row_groups), 3)
+
+    @patch("lib.Camera.base.cv2.putText")
+    def test_chinese_watermark_uses_unicode_renderer(self, put_text):
+        try:
+            _load_chinese_font(12)
+        except OSError:
+            self.skipTest("No Chinese font is installed")
+        camera = self.make_camera("hik", "设备型号: 测试摄像头")
+
+        camera.watermark()
+
+        put_text.assert_not_called()
+        self.assertTrue(np.any(camera.frame))
 
     @staticmethod
     def make_camera(camera_type, text):
