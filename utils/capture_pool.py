@@ -10,6 +10,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
+import cv2
+import numpy as np
+
 from lib.Camera import Camera
 from lib.OnvifClient import OnvifClient
 from utils.log_utils import pause_event
@@ -21,7 +24,8 @@ DEFAULT_MAX_WORKERS = 8
 
 def batch_capture_computer_cameras(folder_path=None,
                                    is_water_mark=True,
-                                   max_index=3):
+                                   max_index=3,
+                                   watermark_style=None):
     """
     电脑所有可用摄像头批量截图
     @param folder_path: 统一保存文件夹路径
@@ -37,7 +41,8 @@ def batch_capture_computer_cameras(folder_path=None,
             camera_type="computer",
             cam_index=cam_index,
             folder_path=folder_path,
-            is_water_mark=is_water_mark
+            is_water_mark=is_water_mark,
+            watermark_style=watermark_style,
         )
         result = cam.capture()
         status, info = result
@@ -56,7 +61,8 @@ def batch_capture_computer_cameras(folder_path=None,
 
 
 def _capture_one_impl(
-    index, camera_info, camera_type, folder_path, is_water_mark, timings=None
+    index, camera_info, camera_type, folder_path, is_water_mark, timings=None,
+    watermark_style=None,
 ):
     """Capture one camera and return a normalized result tuple."""
     ip = str(camera_info.get('ip', 'unknown'))
@@ -76,6 +82,33 @@ def _capture_one_impl(
         finally:
             if timings is not None:
                 timings.update(client.last_timings)
+        if file_path and is_water_mark:
+            watermark_started = time.perf_counter()
+            watermark_camera = Camera(
+                ip=ip,
+                username=camera_info.get('username') or 'admin',
+                password=camera_info.get('password', ''),
+                camera_type='onvif',
+                folder_path=folder_path,
+                is_water_mark=False,
+                watermark_style=watermark_style,
+            )
+            watermark_camera.frame = cv2.imdecode(
+                np.fromfile(file_path, dtype=np.uint8),
+                cv2.IMREAD_COLOR,
+            )
+            if watermark_camera.frame is None:
+                raise RuntimeError(f"读取 ONVIF 快照失败：{file_path}")
+            watermark_camera.file_name = os.path.basename(file_path)
+            watermark_camera.watermark()
+            encoded_ok, encoded_image = cv2.imencode(
+                ".jpg", watermark_camera.frame
+            )
+            if not encoded_ok or encoded_image is None:
+                raise RuntimeError("ONVIF 快照添加水印后编码失败")
+            encoded_image.tofile(file_path)
+            if timings is not None:
+                timings["添加水印"] = time.perf_counter() - watermark_started
         if file_path:
             return index, ip, 1, file_path
         return index, ip, 0, "ONVIF 快照失败"
@@ -88,6 +121,7 @@ def _capture_one_impl(
         onvif_port=int(camera_info.get('onvif_port') or camera_info.get('port') or 80),
         folder_path=folder_path,
         is_water_mark=is_water_mark,
+        watermark_style=watermark_style,
     )
     status, result = camera.capture()
     if timings is not None:
@@ -95,7 +129,10 @@ def _capture_one_impl(
     return index, ip, status, result
 
 
-def _capture_one(index, camera_info, camera_type, folder_path, is_water_mark):
+def _capture_one(
+    index, camera_info, camera_type, folder_path, is_water_mark,
+    watermark_style=None,
+):
     """Capture one camera and include its elapsed-time measurements."""
     pause_event.wait()
     capture_started = time.perf_counter()
@@ -109,6 +146,7 @@ def _capture_one(index, camera_info, camera_type, folder_path, is_water_mark):
             folder_path,
             is_water_mark,
             timings,
+            watermark_style,
         )
     except Exception as error:
         logger.exception("截图任务异常 IP: %s", ip)
@@ -135,6 +173,7 @@ def _capture_camera_records(
     folder_path=None,
     is_water_mark=True,
     max_workers=DEFAULT_MAX_WORKERS,
+    watermark_style=None,
 ):
     """Capture parsed camera records with bounded concurrency."""
     batch_started = time.perf_counter()
@@ -178,6 +217,7 @@ def _capture_camera_records(
                 camera_type,
                 folder_path,
                 is_water_mark,
+                watermark_style,
             ): index
             for index, camera_info in enumerate(cameras)
         }
@@ -256,6 +296,7 @@ def _capture_csv_cameras(
     folder_path=None,
     is_water_mark=True,
     max_workers=DEFAULT_MAX_WORKERS,
+    watermark_style=None,
 ):
     """Read a CSV once and capture its cameras."""
     csv_started = time.perf_counter()
@@ -294,6 +335,7 @@ def _capture_csv_cameras(
         folder_path=folder_path,
         is_water_mark=is_water_mark,
         max_workers=max_workers,
+        watermark_style=watermark_style,
     )
 
 
@@ -304,6 +346,7 @@ def capture_cameras(
     folder_path=None,
     is_water_mark=True,
     max_workers=DEFAULT_MAX_WORKERS,
+    watermark_style=None,
 ):
     """Capture already-parsed CSV records using the shared batch pipeline."""
     if camera_type not in {'hik', 'dahua', 'onvif'}:
@@ -315,6 +358,7 @@ def capture_cameras(
         folder_path=folder_path,
         is_water_mark=is_water_mark,
         max_workers=max_workers,
+        watermark_style=watermark_style,
     )
 
 
@@ -324,6 +368,7 @@ def capture_pool(csv_file, *args, **kwargs):
     folder_path = kwargs.pop('folder_path', None)
     is_water_mark = kwargs.pop('is_water_mark', True)
     max_workers = kwargs.pop('max_workers', DEFAULT_MAX_WORKERS)
+    watermark_style = kwargs.pop('watermark_style', None)
     if camera_type not in {'hik', 'dahua'}:
         raise ValueError(f"不支持的摄像头类型: {camera_type}")
     return _capture_csv_cameras(
@@ -332,6 +377,7 @@ def capture_pool(csv_file, *args, **kwargs):
         folder_path=folder_path,
         is_water_mark=is_water_mark,
         max_workers=max_workers,
+        watermark_style=watermark_style,
     )
 
 

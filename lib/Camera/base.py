@@ -20,6 +20,7 @@ from PIL import Image, ImageTk
 
 from lib.OnvifClient import OnvifClient
 from utils.tool import is_port_open
+from utils.watermark import normalize_watermark_style
 
 logger = logging.getLogger('camera_logger')
 
@@ -82,6 +83,8 @@ class Camera:
             is_water_mark=True,
             # 新增：电脑摄像头索引（默认为0，对应第一个摄像头，1对应第2个，以此类推）
             cam_index=0,
+            # 水印样式配置
+            watermark_style=None,
     ):
         """
         初始化摄像头
@@ -111,6 +114,7 @@ class Camera:
         self.last_timings = {}
         # 是否添加水印
         self.is_water_mark = is_water_mark
+        self.watermark_style = normalize_watermark_style(watermark_style)
 
         # 截图的保存文件名是ip_password_camear_type_strftime.jpg
         self._file_name = file_name or None
@@ -386,18 +390,29 @@ class Camera:
 
     def watermark(self):
         """
-        在截图左上角添加白色文件名水印。
+        按已配置的样式在截图上添加水印。
         :return:
         """
         if self.frame is None:
             raise RuntimeError("截图失败或未打开摄像头，无法添加水印信息！")
-        text = self.file_name
+        style = self.watermark_style
+        text = style["text"].format_map({
+            "filename": self.file_name,
+            "ip": self.ip or f"computer_{self.cam_index}",
+            "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+            "camera_type": self.camera_type,
+            "camera_index": str(self.cam_index),
+        })
+        if not text:
+            return
+
         img_height, img_width = self.frame.shape[:2]
-        margin = max(12, round(img_width * 0.02))
+        margin = round(img_width * style["margin"] / 100)
         available_width = max(1, img_width - margin * 2)
         font_scale = max(0.3, min(img_width / 1200, 2.0))
+        font_scale *= style["font_scale"]
         thickness = max(round(font_scale * 2), 1)
-        font_face = cv2.FONT_HERSHEY_SIMPLEX
+        font_face = getattr(cv2, style["font"])
         (text_width, text_height), baseline = cv2.getTextSize(
             text,
             font_face,
@@ -413,9 +428,29 @@ class Camera:
                 font_scale,
                 thickness
             )
-        x = margin
-        y = min(text_height + margin, img_height - baseline - 1)
-        y = max(text_height, y)
+
+        vertical_position, horizontal_position = style["position"].split("_")
+        if horizontal_position == "left":
+            x = margin
+        elif horizontal_position == "center":
+            x = (img_width - text_width) // 2
+        else:
+            x = img_width - margin - text_width
+
+        if vertical_position == "top":
+            y = text_height + margin
+        elif vertical_position == "middle":
+            y = (img_height + text_height) // 2
+        else:
+            y = img_height - margin - baseline
+        x = max(0, min(x, max(0, img_width - text_width)))
+        y = max(text_height, min(y, max(text_height, img_height - baseline)))
+
+        def bgr_color(hex_color):
+            return tuple(
+                int(hex_color[index:index + 2], 16)
+                for index in (5, 3, 1)
+            )
 
         cv2.putText(
             self.frame,
@@ -423,7 +458,7 @@ class Camera:
             (x, y),
             font_face,
             font_scale,
-            (0, 0, 0),
+            bgr_color(style["outline_color"]),
             thickness + 4,
             cv2.LINE_AA
         )
@@ -433,7 +468,7 @@ class Camera:
             (x, y),
             font_face,
             font_scale,
-            (255, 255, 255),
+            bgr_color(style["color"]),
             thickness,
             cv2.LINE_AA
         )
