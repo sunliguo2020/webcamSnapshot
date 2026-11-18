@@ -10,13 +10,24 @@ from utils.watermark import (
     save_watermark_style,
 )
 
+WATERMARK_TEXT_PRESETS = {
+    "文件名": "{filename}",
+    "IP 地址": "IP: {ip}",
+    "时间": "时间: {time}",
+    "摄像头类型": "类型: {camera_type}",
+    "摄像头序号": "序号: {camera_index}",
+    "设备型号": "型号: {model}",
+    "MAC 地址": "MAC: {mac}",
+    "序列号": "序列号: {serial_number}",
+}
+
 
 def edit_watermark_style(parent, style):
     """Show the modal style editor and return the saved style, if any."""
     dialog = tk.Toplevel(parent)
     dialog.title("水印样式设置")
-    dialog.geometry("700x480")
-    dialog.minsize(680, 460)
+    dialog.geometry("760x700")
+    dialog.minsize(700, 620)
     dialog.resizable(True, True)
     dialog.transient(parent)
     dialog.update_idletasks()
@@ -63,43 +74,114 @@ def edit_watermark_style(parent, style):
     tk.Label(
         form,
         text=(
-            "水印文字（支持 {filename}、{ip}、{time}、{model}、"
-            "{mac}、{serial_number}、{serial}；按回车换行）"
+            "水印文字（每行一项；支持 {filename}、{ip}、{time}、"
+            "{camera_type}、{camera_index}、{model}、{mac}、"
+            "{serial_number}、{serial}）"
         ),
     ).grid(
         row=0, column=0, columnspan=3, sticky="w", pady=(0, 4)
     )
-    text_input = tk.Text(form, width=74, height=3, wrap="word")
-    text_input.insert("1.0", style["text"])
-    text_input.grid(
-        row=1, column=0, columnspan=3, sticky="ew", pady=(0, 10)
+    preset_var = tk.StringVar(dialog, value=next(iter(WATERMARK_TEXT_PRESETS)))
+    ttk.Combobox(
+        form,
+        textvariable=preset_var,
+        values=list(WATERMARK_TEXT_PRESETS),
+        state="readonly",
+        width=16,
+    ).grid(row=1, column=0, sticky="w", pady=(0, 6))
+    rows_container = tk.Frame(form)
+    rows_container.grid(
+        row=2, column=0, columnspan=3, sticky="nsew", pady=(0, 10)
     )
+    rows_canvas = tk.Canvas(
+        rows_container, height=120, highlightthickness=0
+    )
+    rows_scrollbar = ttk.Scrollbar(
+        rows_container, orient="vertical", command=rows_canvas.yview
+    )
+    rows_canvas.configure(yscrollcommand=rows_scrollbar.set)
+    rows_canvas.pack(side="left", fill="both", expand=True)
+    rows_scrollbar.pack(side="right", fill="y")
+    rows_frame = tk.Frame(rows_canvas)
+    rows_window = rows_canvas.create_window(
+        (0, 0), window=rows_frame, anchor="nw"
+    )
+    rows_frame.bind(
+        "<Configure>",
+        lambda _event: rows_canvas.configure(
+            scrollregion=rows_canvas.bbox("all")
+        ),
+    )
+    rows_canvas.bind(
+        "<Configure>",
+        lambda event: rows_canvas.itemconfigure(
+            rows_window, width=event.width
+        ),
+    )
+    form.grid_rowconfigure(2, weight=1)
+    row_vars = []
 
-    tk.Label(form, text="字体").grid(row=2, column=0, sticky="w")
-    tk.Label(form, text="字号比例").grid(row=2, column=1, sticky="w")
-    tk.Label(form, text="位置").grid(row=2, column=2, sticky="w")
+    def render_text_rows():
+        for child in rows_frame.winfo_children():
+            child.destroy()
+        for row, variable in enumerate(row_vars):
+            ttk.Entry(rows_frame, textvariable=variable).grid(
+                row=row, column=0, sticky="ew", pady=2
+            )
+            tk.Button(
+                rows_frame,
+                text="x",
+                width=3,
+                relief="flat",
+                command=lambda row_var=variable: remove_text_row(row_var),
+            ).grid(row=row, column=1, sticky="e", padx=(4, 0), pady=2)
+        rows_frame.grid_columnconfigure(0, weight=1)
+        rows_canvas.configure(scrollregion=rows_canvas.bbox("all"))
+
+    def add_text_row(text):
+        variable = tk.StringVar(dialog, value=text)
+        variable.trace_add("write", draw_preview)
+        row_vars.append(variable)
+        render_text_rows()
+        rows_canvas.yview_moveto(1)
+
+    def remove_text_row(variable):
+        row_vars.remove(variable)
+        render_text_rows()
+        draw_preview()
+
+    def add_preset_row():
+        add_text_row(WATERMARK_TEXT_PRESETS[preset_var.get()])
+
+    tk.Button(
+        form, text="添加数据行", command=add_preset_row
+    ).grid(row=1, column=1, sticky="w", padx=(8, 0), pady=(0, 6))
+
+    tk.Label(form, text="字体").grid(row=3, column=0, sticky="w")
+    tk.Label(form, text="字号比例").grid(row=3, column=1, sticky="w")
+    tk.Label(form, text="位置").grid(row=3, column=2, sticky="w")
     ttk.Combobox(
         form, textvariable=font_var, values=list(FONT_OPTIONS),
         state="readonly", width=14
-    ).grid(row=3, column=0, sticky="ew", padx=(0, 8), pady=(2, 10))
+    ).grid(row=4, column=0, sticky="ew", padx=(0, 8), pady=(2, 10))
     tk.Spinbox(
         form, textvariable=scale_var, from_=0.1, to=5, increment=0.1,
         width=12
-    ).grid(row=3, column=1, sticky="ew", padx=(0, 8), pady=(2, 10))
+    ).grid(row=4, column=1, sticky="ew", padx=(0, 8), pady=(2, 10))
     ttk.Combobox(
         form, textvariable=position_var, values=list(POSITION_OPTIONS),
         state="readonly", width=14
-    ).grid(row=3, column=2, sticky="ew", pady=(2, 10))
+    ).grid(row=4, column=2, sticky="ew", pady=(2, 10))
 
     tk.Label(form, text="边距（画面宽度百分比）").grid(
-        row=4, column=0, sticky="w"
+        row=5, column=0, sticky="w"
     )
-    tk.Label(form, text="文字颜色").grid(row=4, column=1, sticky="w")
-    tk.Label(form, text="描边颜色").grid(row=4, column=2, sticky="w")
+    tk.Label(form, text="文字颜色").grid(row=5, column=1, sticky="w")
+    tk.Label(form, text="描边颜色").grid(row=5, column=2, sticky="w")
     tk.Spinbox(
         form, textvariable=margin_var, from_=0, to=20, increment=1,
         width=12
-    ).grid(row=5, column=0, sticky="w", pady=(2, 10))
+    ).grid(row=6, column=0, sticky="w", pady=(2, 10))
 
     def choose_color(variable):
         selected = colorchooser.askcolor(
@@ -111,20 +193,20 @@ def edit_watermark_style(parent, style):
     tk.Button(
         form, textvariable=color_var,
         command=lambda: choose_color(color_var), width=12
-    ).grid(row=5, column=1, sticky="w", pady=(2, 10))
+    ).grid(row=6, column=1, sticky="w", pady=(2, 10))
     tk.Button(
         form, textvariable=outline_var,
         command=lambda: choose_color(outline_var), width=12
-    ).grid(row=5, column=2, sticky="w", pady=(2, 10))
+    ).grid(row=6, column=2, sticky="w", pady=(2, 10))
 
     tk.Label(form, text="预览").grid(
-        row=6, column=0, columnspan=3, sticky="w"
+        row=7, column=0, columnspan=3, sticky="w"
     )
     preview = tk.Canvas(
         form, width=640, height=115, bg="#39465B",
         highlightthickness=0
     )
-    preview.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 12))
+    preview.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(4, 12))
     sample_values = {
         "filename": "192.168.1.100_dahua_20261118120000.jpg",
         "ip": "192.168.1.100",
@@ -139,7 +221,7 @@ def edit_watermark_style(parent, style):
 
     def get_dialog_style():
         return normalize_watermark_style({
-            "text": text_input.get("1.0", "end-1c"),
+            "text": "\n".join(variable.get() for variable in row_vars),
             "font": FONT_OPTIONS[font_var.get()],
             "font_scale": float(scale_var.get()),
             "color": color_var.get(),
@@ -214,23 +296,21 @@ def edit_watermark_style(parent, style):
             x, y, fill=preview_style["color"], **text_options
         )
 
+    for line in style["text"].split("\n"):
+        add_text_row(line)
+
     for variable in (
         font_var, scale_var, position_var, margin_var, color_var,
         outline_var,
     ):
         variable.trace_add("write", draw_preview)
 
-    def on_text_modified(event):
-        event.widget.edit_modified(False)
-        draw_preview()
-
-    text_input.bind("<<Modified>>", on_text_modified)
     preview.bind("<Configure>", draw_preview)
     draw_preview()
 
     result = {"style": None}
     buttons = tk.Frame(form)
-    buttons.grid(row=8, column=0, columnspan=3, sticky="e")
+    buttons.grid(row=9, column=0, columnspan=3, sticky="e")
     tk.Button(
         buttons, text="取消", command=dialog.destroy, width=10
     ).pack(side="right", padx=(8, 0))

@@ -19,7 +19,7 @@
 - 查看任务结果，并打开截图目录
 
 水印样式会自动保存；运行源码时保存在 `config/watermark.json`，打包版保存在用户的 `%APPDATA%\webcamSnapshot` 目录。
-水印文字框支持多行，例如 `mac:{mac}`、`ip:{ip}`、`serial:{serial}` 可分行输入。模板还可使用 `{model}`、`{mac}`、`{serial_number}` 或 `{serial}` 读取大华设备信息；仅在模板使用这些字段时访问设备管理接口，无法获取的字段显示为 `N/A`。
+水印设置中可逐行编辑和删除文字，也可从常用数据列表添加文件名、IP、时间、摄像头信息、型号、MAC 或序列号。每行支持 `{filename}`、`{ip}`、`{time}`、`{camera_type}`、`{camera_index}`、`{model}`、`{mac}`、`{serial_number}` 或 `{serial}` 等模板字段；仅在模板使用设备型号、MAC 或序列号时访问大华设备管理接口，无法获取的字段显示为 `N/A`。
 
 ## 运行
 
