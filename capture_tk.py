@@ -5,7 +5,6 @@
 摄像头批量截图的图形界面
 """
 
-import csv
 import logging
 import os
 import threading
@@ -16,6 +15,7 @@ from tkinter import DISABLED, NORMAL, filedialog, messagebox, ttk
 from PIL import Image, ImageTk
 
 # 导入抽离的工具类
+from gui.csv_preview import show_csv_preview
 from gui.watermark_settings import edit_watermark_style
 from utils.capture_pool import batch_capture_computer_cameras, capture_cameras
 from utils.log_config import setup_logging
@@ -175,139 +175,7 @@ class CameraSnapshotApp:
 
     def _preview_csv(self):
         """预览 CSV 文件内容"""
-        csv_path = self.select_path.get()
-        if not csv_path:
-            gui_queue.put(("show_warning", ("提示", "请先选择 CSV 文件")))
-            return
-
-        if not csv_path.lower().endswith('.csv'):
-            gui_queue.put(("show_warning", ("提示", "请选择 CSV 格式的文件")))
-            return
-
-        try:
-            # 读取 CSV 文件
-            with open(csv_path, 'r', encoding='utf-8-sig') as f:
-                reader = csv.reader(f)
-                rows = list(reader)
-
-            if not rows:
-                gui_queue.put(("show_warning", ("提示", "CSV 文件为空")))
-                return
-
-            headers = rows[0]
-            data_rows = rows[1:]
-
-            # 创建预览窗口
-            preview_win = tk.Toplevel(self.root)
-            preview_win.title(f"CSV 预览 - {os.path.basename(csv_path)}")
-            preview_win.geometry("600x400+350+250")
-            preview_win.configure(bg=self.COLOR_BG)
-            preview_win.resizable(True, True)
-
-            # 顶部信息
-            info_frame = tk.Frame(preview_win, bg=self.COLOR_BG)
-            info_frame.pack(fill="x", padx=10, pady=(10, 5))
-
-            tk.Label(
-                info_frame,
-                text=f"文件: {csv_path}",
-                font=("微软雅黑", 9),
-                bg=self.COLOR_BG,
-                fg="#555555",
-                anchor="w"
-            ).pack(fill="x")
-
-            tk.Label(
-                info_frame,
-                text=f"共 {len(data_rows)} 条记录，{len(headers)} 列",
-                font=("微软雅黑", 9, "bold"),
-                bg=self.COLOR_BG,
-                fg="#333333",
-                anchor="w"
-            ).pack(fill="x")
-
-            # 表格区域 - 使用 Canvas 绘制带边框的表格
-            tree_frame = tk.Frame(preview_win, bg=self.COLOR_FRAME_BG)
-            tree_frame.pack(fill="both", expand=True, padx=10, pady=5)
-
-            # 创建 Canvas 和滚动条
-            canvas = tk.Canvas(tree_frame, bg='white', highlightthickness=0)
-            v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=canvas.yview)
-            h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=canvas.xview)
-            canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
-
-            v_scrollbar.pack(side="right", fill="y")
-            h_scrollbar.pack(side="bottom", fill="x")
-            canvas.pack(side="left", fill="both", expand=True)
-
-            # 计算列宽 - 根据数据内容动态调整
-            col_widths = [45]  # 序号列
-            for ci, col in enumerate(headers):
-                # 计算该列所有数据的最大长度
-                max_len = len(col)
-                for row in data_rows:
-                    if ci < len(row):
-                        # 中文字符算2个宽度
-                        cell_len = sum(2 if ord(c) > 127 else 1 for c in row[ci])
-                        max_len = max(max_len, cell_len)
-                col_widths.append(max(70, max_len * 7 + 24))
-            total_width = sum(col_widths)
-            row_height = 26
-
-            # 计算画布大小
-            canvas_width = total_width + 4
-            canvas_height = (len(data_rows) + 1) * row_height + 4
-            canvas.config(scrollregion=(0, 0, canvas_width, canvas_height))
-
-            # 绘制表头
-            x = 2
-            y = 2
-            for ci, (col_name, cw) in enumerate(zip(['序号'] + headers, col_widths)):
-                canvas.create_rectangle(x, y, x + cw, y + row_height,
-                                        outline='#999999', fill='#E8E8E8')
-                canvas.create_text(x + cw // 2, y + row_height // 2,
-                                   text=col_name, font=('微软雅黑', 9, 'bold'),
-                                   anchor='center')
-                x += cw
-
-            # 绘制数据行
-            y += row_height
-            for ri, row in enumerate(data_rows):
-                x = 2
-                # 补齐行
-                padded_row = row + [''] * (len(headers) - len(row))
-                values = [str(ri + 1)] + padded_row[:len(headers)]
-                for ci, (val, cw) in enumerate(zip(values, col_widths)):
-                    # 绘制单元格边框（留1像素内边距避免重叠）
-                    canvas.create_rectangle(x + 1, y + 1, x + cw - 1, y + row_height - 1,
-                                            outline='#CCCCCC', fill='white')
-                    # 文字居中显示
-                    canvas.create_text(x + cw // 2, y + row_height // 2,
-                                       text=val, font=('微软雅黑', 9),
-                                       anchor='center')
-                    x += cw
-                y += row_height
-
-            # 底部关闭按钮
-            btn_frame = tk.Frame(preview_win, bg=self.COLOR_BG)
-            btn_frame.pack(fill="x", padx=10, pady=10)
-
-            tk.Button(
-                btn_frame,
-                text="关闭",
-                font=self.FONT_BUTTON,
-                bg=self.COLOR_BUTTON,
-                fg=self.COLOR_BUTTON_TEXT,
-                relief="flat", bd=0,
-                cursor="hand2",
-                padx=20, pady=5,
-                command=preview_win.destroy
-            ).pack(side="right")
-
-        except UnicodeDecodeError:
-            gui_queue.put(("show_error", ("错误", "CSV 文件编码错误，请使用 UTF-8 编码")))
-        except Exception as e:
-            gui_queue.put(("show_error", ("错误", f"读取 CSV 文件失败: {str(e)}")))
+        show_csv_preview(self.root, self.select_path.get())
 
     # ====================== 临时截图 ======================
 
