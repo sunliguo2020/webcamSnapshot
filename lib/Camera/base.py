@@ -7,6 +7,7 @@ import errno
 import logging
 import os
 import time
+from string import Formatter
 import tkinter as tk
 from urllib.parse import quote
 
@@ -19,6 +20,7 @@ import cv2
 from PIL import Image, ImageTk
 
 from lib.OnvifClient import OnvifClient
+from utils.dahua_device_info import get_dahua_device_info
 from utils.tool import is_port_open
 from utils.watermark import normalize_watermark_style
 
@@ -85,6 +87,8 @@ class Camera:
             cam_index=0,
             # 水印样式配置
             watermark_style=None,
+            # 大华设备 HTTP 管理端口
+            device_info_port=80,
     ):
         """
         初始化摄像头
@@ -115,6 +119,7 @@ class Camera:
         # 是否添加水印
         self.is_water_mark = is_water_mark
         self.watermark_style = normalize_watermark_style(watermark_style)
+        self.device_info_port = device_info_port
 
         # 截图的保存文件名是ip_password_camear_type_strftime.jpg
         self._file_name = file_name or None
@@ -396,55 +401,124 @@ class Camera:
         if self.frame is None:
             raise RuntimeError("截图失败或未打开摄像头，无法添加水印信息！")
         style = self.watermark_style
-        text = style["text"].format_map({
+        values = {
             "filename": self.file_name,
             "ip": self.ip or f"computer_{self.cam_index}",
             "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
             "camera_type": self.camera_type,
             "camera_index": str(self.cam_index),
-        })
+            "model": "N/A",
+            "mac": "N/A",
+            "serial_number": "N/A",
+            "serial": "N/A",
+        }
+        template_fields = {
+            field_name.split(".", 1)[0].split("[", 1)[0]
+            for _, field_name, _, _ in Formatter().parse(style["text"])
+            if field_name
+        }
+        device_info_fields = {"model", "mac", "serial", "serial_number"}
+        if self.camera_type == "dahua" and template_fields & device_info_fields:
+            try:
+                info = get_dahua_device_info(
+                    self.ip,
+                    self.username,
+                    self.password,
+                    port=getattr(self, "device_info_port", 80),
+                )
+            except (TypeError, ValueError) as error:
+                logger.warning(
+                    "读取大华设备信息配置失败 IP=%s：%s",
+                    self.ip,
+                    error,
+                )
+                info = {}
+            values.update({
+                key: info.get(key) or "N/A"
+                for key in ("model", "mac", "serial_number")
+            })
+            values["serial"] = values["serial_number"]
+        text = style["text"].format_map(values)
         if not text:
+            return
+
+        lines = text.splitlines()
+        if not any(lines):
             return
 
         img_height, img_width = self.frame.shape[:2]
         margin = round(img_width * style["margin"] / 100)
         available_width = max(1, img_width - margin * 2)
+        available_height = max(1, img_height - margin * 2)
         font_scale = max(0.3, min(img_width / 1200, 2.0))
         font_scale *= style["font_scale"]
-        thickness = max(round(font_scale * 2), 1)
         font_face = getattr(cv2, style["font"])
-        (text_width, text_height), baseline = cv2.getTextSize(
-            text,
-            font_face,
-            font_scale,
-            thickness
-        )
-        if text_width > available_width:
-            font_scale *= available_width / text_width
+
+        def measure_lines():
             thickness = max(round(font_scale * 2), 1)
-            (text_width, text_height), baseline = cv2.getTextSize(
-                text,
-                font_face,
-                font_scale,
-                thickness
+            sizes = [
+                cv2.getTextSize(line or " ", font_face, font_scale, thickness)
+                for line in lines
+            ]
+            max_width = max(
+                (size[0][0] for line, size in zip(lines, sizes) if line),
+                default=0,
+            )
+            text_height = max(size[0][1] for size in sizes)
+            baseline = max(size[1] for size in sizes)
+            line_spacing = text_height + baseline + max(
+                2, round(font_scale * 2)
+            )
+            block_height = (
+                text_height + (len(lines) - 1) * line_spacing + baseline
+            )
+            return (
+                thickness,
+                sizes,
+                max_width,
+                text_height,
+                baseline,
+                line_spacing,
+                block_height,
             )
 
-        vertical_position, horizontal_position = style["position"].split("_")
-        if horizontal_position == "left":
-            x = margin
-        elif horizontal_position == "center":
-            x = (img_width - text_width) // 2
-        else:
-            x = img_width - margin - text_width
+        for _ in range(2):
+            (
+                thickness,
+                line_sizes,
+                max_width,
+                text_height,
+                baseline,
+                line_spacing,
+                block_height,
+            ) = measure_lines()
+            scale_factor = min(
+                1.0,
+                available_width / max_width if max_width else 1.0,
+                available_height / block_height if block_height else 1.0,
+            )
+            if scale_factor >= 1.0:
+                break
+            font_scale *= scale_factor
 
+        (
+            thickness,
+            line_sizes,
+            _,
+            text_height,
+            baseline,
+            line_spacing,
+            block_height,
+        ) = measure_lines()
+
+        vertical_position, horizontal_position = style["position"].split("_")
         if vertical_position == "top":
-            y = text_height + margin
+            block_top = margin
         elif vertical_position == "middle":
-            y = (img_height + text_height) // 2
+            block_top = (img_height - block_height) // 2
         else:
-            y = img_height - margin - baseline
-        x = max(0, min(x, max(0, img_width - text_width)))
-        y = max(text_height, min(y, max(text_height, img_height - baseline)))
+            block_top = img_height - margin - block_height
+        block_top = max(0, min(block_top, max(0, img_height - block_height)))
 
         def bgr_color(hex_color):
             return tuple(
@@ -452,26 +526,43 @@ class Camera:
                 for index in (5, 3, 1)
             )
 
-        cv2.putText(
-            self.frame,
-            text,
-            (x, y),
-            font_face,
-            font_scale,
-            bgr_color(style["outline_color"]),
-            thickness + 4,
-            cv2.LINE_AA
-        )
-        cv2.putText(
-            self.frame,
-            text,
-            (x, y),
-            font_face,
-            font_scale,
-            bgr_color(style["color"]),
-            thickness,
-            cv2.LINE_AA
-        )
+        for line_index, line in enumerate(lines):
+            if not line:
+                continue
+            line_width = line_sizes[line_index][0][0]
+            if horizontal_position == "left":
+                x = margin
+            elif horizontal_position == "center":
+                x = (img_width - line_width) // 2
+            else:
+                x = img_width - margin - line_width
+            x = max(0, min(x, max(0, img_width - line_width)))
+            y = block_top + text_height + line_index * line_spacing
+            y = max(
+                text_height,
+                min(y, max(text_height, img_height - baseline)),
+            )
+
+            cv2.putText(
+                self.frame,
+                line,
+                (x, y),
+                font_face,
+                font_scale,
+                bgr_color(style["outline_color"]),
+                thickness + 4,
+                cv2.LINE_AA
+            )
+            cv2.putText(
+                self.frame,
+                line,
+                (x, y),
+                font_face,
+                font_scale,
+                bgr_color(style["color"]),
+                thickness,
+                cv2.LINE_AA
+            )
 
     @property
     def camera_path(self):

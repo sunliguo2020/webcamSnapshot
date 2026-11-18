@@ -122,6 +122,11 @@ def _capture_one_impl(
         folder_path=folder_path,
         is_water_mark=is_water_mark,
         watermark_style=watermark_style,
+        device_info_port=(
+            camera_info.get('http_port')
+            or camera_info.get('web_port')
+            or 80
+        ),
     )
     status, result = camera.capture()
     if timings is not None:

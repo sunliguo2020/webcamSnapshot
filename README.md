@@ -19,6 +19,7 @@
 - 查看任务结果，并打开截图目录
 
 水印样式会自动保存；运行源码时保存在 `config/watermark.json`，打包版保存在用户的 `%APPDATA%\webcamSnapshot` 目录。
+水印文字框支持多行，例如 `mac:{mac}`、`ip:{ip}`、`serial:{serial}` 可分行输入。模板还可使用 `{model}`、`{mac}`、`{serial_number}` 或 `{serial}` 读取大华设备信息；仅在模板使用这些字段时访问设备管理接口，无法获取的字段显示为 `N/A`。
 
 ## 运行
 
@@ -32,6 +33,7 @@ python main.py
 ## 摄像头 CSV 格式
 
 网络摄像头列表使用 CSV 文件。首行必须包含 `ip` 和 `password` 两列，列名不区分大小写；其他列可按需添加。
+大华设备的 HTTP 管理端口默认为 `80`；如设备使用其他端口，可增加 `http_port` 列供水印信息读取使用。
 
 ```csv
 ip,password
