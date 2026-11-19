@@ -12,12 +12,22 @@ import time
 import tkinter as tk
 from tkinter import DISABLED, NORMAL, filedialog, messagebox, ttk
 
+import requests
 from PIL import Image, ImageTk
 
 # 导入抽离的工具类
 from gui.csv_preview import show_csv_preview
 from gui.watermark_settings import edit_watermark_style
-from utils.capture_pool import batch_capture_computer_cameras, capture_cameras
+from utils.capture_pool import (
+    batch_capture_computer_cameras,
+    capture_hikvision_recorder_channels,
+    capture_cameras,
+    expand_hikvision_channel_numbers,
+    expand_hikvision_channels,
+)
+from utils.hikvision_device_info import (
+    get_hikvision_streaming_channel_numbers,
+)
 from utils.log_config import setup_logging
 from utils.log_utils import (
     LogWidget,
@@ -26,7 +36,7 @@ from utils.log_utils import (
     poll_gui_queue,
 )
 from utils.other_utils import build_save_dir, open_folder
-from utils.tool import get_cam_list
+from utils.tool import get_cam_list, is_ipv4
 from utils.watermark import (
     load_watermark_style,
     normalize_watermark_style,
@@ -39,8 +49,8 @@ class CameraSnapshotApp:
     """摄像头批量截图图形界面主类"""
 
     WINDOW_TITLE = "网络摄像头截图小工具"
-    WINDOW_GEOMETRY = "500x600+200+150"
-    CAMERA_TYPES = ("海康", "大华", "onvif", "电脑")
+    WINDOW_GEOMETRY = "500x680+200+40"
+    CAMERA_TYPES = ("海康", "海康录像机", "大华", "onvif", "电脑")
 
     # 字体定义
     FONT_TITLE = ("微软雅黑", 11, "bold")
@@ -81,6 +91,10 @@ class CameraSnapshotApp:
             )
         self.temp_ip = tk.StringVar()
         self.temp_password = tk.StringVar()
+        self.channel_start = tk.StringVar(value="1")
+        self.channel_end = tk.StringVar(value="64")
+        self.recorder_ip = tk.StringVar()
+        self.recorder_password = tk.StringVar()
         self.capture_running = False
 
         # 控件引用
@@ -195,6 +209,7 @@ class CameraSnapshotApp:
         client_type = self.numberChosen.get()
         camera_type_map = {
             "海康": "hik",
+            "海康录像机": "hik",
             "大华": "dahua",
             "onvif": "onvif",
             "电脑": "computer"
@@ -209,6 +224,9 @@ class CameraSnapshotApp:
                     ip=ip,
                     password=password,
                     camera_type=camera_type,
+                    channel_no=(
+                        1 if client_type == "海康录像机" else None
+                    ),
                     watermark_style=self.watermark_style,
                 ).capture()
                 status, info = result
@@ -246,6 +264,7 @@ class CameraSnapshotApp:
 
         # ---- 摄像头类型 + 水印复选框 ----
         type_frame = tk.Frame(content_frame, bg=self.COLOR_BG)
+        self.type_frame = type_frame
         type_frame.pack(fill="x", padx=10, pady=5, anchor="w")
         tk.Label(
             type_frame, text="摄像头类型:", font=self.FONT_LABEL,
@@ -260,6 +279,42 @@ class CameraSnapshotApp:
         self.numberChosen.pack(side="left", padx=(5, 20))
         self.numberChosen.current(0)
         self.numberChosen.bind("<<ComboboxSelected>>", self._on_camera_type_changed)
+
+        self.channel_frame = tk.Frame(content_frame, bg=self.COLOR_BG)
+        tk.Label(
+            self.channel_frame, text="通道筛选范围:", font=self.FONT_LABEL,
+            bg=self.COLOR_BG
+        ).pack(side="left", padx=(20, 5))
+        tk.Entry(
+            self.channel_frame, textvariable=self.channel_start,
+            font=("微软雅黑", 9), width=5, relief="solid", bd=1
+        ).pack(side="left")
+        tk.Label(
+            self.channel_frame, text="至", font=self.FONT_LABEL,
+            bg=self.COLOR_BG
+        ).pack(side="left", padx=5)
+        tk.Entry(
+            self.channel_frame, textvariable=self.channel_end,
+            font=("微软雅黑", 9), width=5, relief="solid", bd=1
+        ).pack(side="left")
+
+        self.recorder_frame = tk.Frame(content_frame, bg=self.COLOR_BG)
+        tk.Label(
+            self.recorder_frame, text="录像机 IP:", font=self.FONT_LABEL,
+            bg=self.COLOR_BG
+        ).pack(side="left", padx=(20, 5))
+        tk.Entry(
+            self.recorder_frame, textvariable=self.recorder_ip,
+            font=("微软雅黑", 9), width=16, relief="solid", bd=1
+        ).pack(side="left")
+        tk.Label(
+            self.recorder_frame, text="密码:", font=self.FONT_LABEL,
+            bg=self.COLOR_BG
+        ).pack(side="left", padx=(10, 5))
+        tk.Entry(
+            self.recorder_frame, textvariable=self.recorder_password,
+            font=("微软雅黑", 9), width=16, relief="solid", bd=1, show="*"
+        ).pack(side="left")
 
         # 水印复选框
         watermark_check = tk.Checkbutton(
@@ -280,6 +335,7 @@ class CameraSnapshotApp:
 
         # ---- CSV 文件路径 ----
         csv_row = tk.Frame(content_frame, bg=self.COLOR_BG)
+        self.csv_row = csv_row
         csv_row.pack(fill="x", padx=10, pady=5, anchor="w")
         tk.Label(
             csv_row, text="CSV文件路径:", font=self.FONT_LABEL,
@@ -307,6 +363,7 @@ class CameraSnapshotApp:
 
         # ---- 截图保存目录 ----
         dir_row = tk.Frame(content_frame, bg=self.COLOR_BG)
+        self.dir_row = dir_row
         dir_row.pack(fill="x", padx=10, pady=5, anchor="w")
         tk.Label(
             dir_row, text="保存位置:", font=self.FONT_LABEL,
@@ -327,6 +384,7 @@ class CameraSnapshotApp:
 
         # ---- 临时截图区域 ----
         temp_frame = tk.Frame(content_frame, bg=self.COLOR_BG)
+        self.temp_frame = temp_frame
         temp_frame.pack(fill="x", padx=10, pady=5, anchor="w")
 
         tk.Label(
@@ -364,7 +422,10 @@ class CameraSnapshotApp:
         ).pack(side="left", padx=(10, 0))
 
         # ---- 分隔线 ----
-        ttk.Separator(content_frame, orient='horizontal').pack(fill="x", padx=20, pady=10)
+        self.action_separator = ttk.Separator(
+            content_frame, orient='horizontal'
+        )
+        self.action_separator.pack(fill="x", padx=20, pady=10)
 
         # ---- 操作按钮区域 ----
         button_frame = tk.Frame(content_frame, bg=self.COLOR_BG)
@@ -446,6 +507,43 @@ class CameraSnapshotApp:
 
     def _on_camera_type_changed(self, event):
         """摄像头类型选择回调"""
+        is_recorder = self.numberChosen.get() == "海康录像机"
+        if is_recorder:
+            self.channel_frame.pack(
+                fill="x",
+                padx=10,
+                pady=2,
+                anchor="w",
+                after=self.type_frame,
+            )
+        else:
+            self.channel_frame.pack_forget()
+        if is_recorder:
+            self.recorder_frame.pack(
+                fill="x",
+                padx=10,
+                pady=2,
+                anchor="w",
+                after=self.channel_frame,
+            )
+            self.csv_row.pack_forget()
+            self.temp_frame.pack_forget()
+        else:
+            self.recorder_frame.pack_forget()
+            self.csv_row.pack(
+                fill="x",
+                padx=10,
+                pady=5,
+                anchor="w",
+                before=self.dir_row,
+            )
+            self.temp_frame.pack(
+                fill="x",
+                padx=10,
+                pady=5,
+                anchor="w",
+                before=self.action_separator,
+            )
         if self.numberChosen.get() == '电脑':
             self.csv_entry['state'] = 'disabled'
             self.csv_button['state'] = DISABLED
@@ -504,7 +602,11 @@ class CameraSnapshotApp:
             "watermark": self.watermark_var.get(),
             "watermark_style": dict(self.watermark_style),
             "csv_file": self.csv_entry.get(),
-            "save_base_dir": self.select_dir.get()
+            "save_base_dir": self.select_dir.get(),
+            "channel_start": self.channel_start.get(),
+            "channel_end": self.channel_end.get(),
+            "recorder_ip": self.recorder_ip.get().strip(),
+            "recorder_password": self.recorder_password.get(),
         }
 
     def _open_watermark_settings(self):
@@ -532,7 +634,63 @@ class CameraSnapshotApp:
             logger.debug(f"是否添加水印：{watermark_flag}")
 
             camera_records = None
-            if client_type != '电脑':
+            if client_type == "海康录像机":
+                ip = config["recorder_ip"]
+                password = config["recorder_password"]
+                if not is_ipv4(ip):
+                    raise ValueError("请输入有效的录像机 IPv4 地址")
+                if not password:
+                    raise ValueError("请输入录像机密码")
+                camera_records = [{"ip": ip, "password": password}]
+                csv_file = f"{ip}.csv"
+                manual_channel_records = expand_hikvision_channels(
+                    camera_records,
+                    config["channel_start"],
+                    config["channel_end"],
+                )
+                channel_start = int(config["channel_start"])
+                channel_end = int(config["channel_end"])
+                try:
+                    detected_channels = (
+                        get_hikvision_streaming_channel_numbers(
+                            ip,
+                            "admin",
+                            password,
+                        )
+                    )
+                except (
+                    PermissionError,
+                    requests.RequestException,
+                    ValueError,
+                ) as error:
+                    logger.warning(
+                        "无法自动读取录像机通道列表，使用手动范围 %s-%s：%s",
+                        channel_start,
+                        channel_end,
+                        error,
+                    )
+                    camera_records = manual_channel_records
+                else:
+                    selected_channels = [
+                        channel
+                        for channel in detected_channels
+                        if channel_start <= channel <= channel_end
+                    ]
+                    if not selected_channels:
+                        raise ValueError(
+                            f"录像机检测到的通道 {detected_channels} "
+                            f"不在所选范围 {channel_start}-{channel_end} 内"
+                        )
+                    logger.info(
+                        "自动识别到录像机流通道：%s；本次采集 %d 个通道",
+                        ", ".join(map(str, detected_channels)),
+                        len(selected_channels),
+                    )
+                    camera_records = expand_hikvision_channel_numbers(
+                        [{"ip": ip, "password": password}],
+                        selected_channels,
+                    )
+            elif client_type != '电脑':
                 if not csv_file or not os.path.isfile(csv_file):
                     raise FileNotFoundError("CSV文件不存在，请重新选择")
                 if not csv_file.lower().endswith('.csv'):
@@ -581,7 +739,15 @@ class CameraSnapshotApp:
                 return
 
             # 网络摄像头截图
-            if client_type == '海康':
+            if client_type == "海康录像机":
+                result, statistics = capture_hikvision_recorder_channels(
+                    camera_records,
+                    csv_file=csv_file,
+                    folder_path=self.save_dir,
+                    is_water_mark=watermark_flag,
+                    watermark_style=config["watermark_style"],
+                )
+            elif client_type == '海康':
                 result, statistics = capture_cameras(
                     camera_records,
                     camera_type="hik",
@@ -610,9 +776,11 @@ class CameraSnapshotApp:
                 )
 
             if client_type != '电脑':
+                unit = "通道" if client_type == "海康录像机" else "台"
                 summary = (
-                    f"批量截图完成：共 {statistics['total']} 台，"
-                    f"成功 {statistics['success']} 台，失败 {statistics['failed']} 台。"
+                    f"批量截图完成：共 {statistics['total']} {unit}，"
+                    f"成功 {statistics['success']} {unit}，"
+                    f"失败 {statistics['failed']} {unit}。"
                 )
                 if statistics['fail_log_file']:
                     summary += f"\n失败清单：{statistics['fail_log_file']}"

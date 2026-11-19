@@ -66,7 +66,11 @@ def _capture_one_impl(
 ):
     """Capture one camera and return a normalized result tuple."""
     ip = str(camera_info.get('ip', 'unknown'))
-    logger.info("开始截图 IP: %s", ip)
+    channel_no = camera_info.get('channel_no')
+    if camera_type == 'hik' and channel_no is not None:
+        logger.info("开始截图 IP: %s 通道: %s", ip, channel_no)
+    else:
+        logger.info("开始截图 IP: %s", ip)
 
     if camera_type == 'onvif':
         port = camera_info.get('port') or camera_info.get('onvif_port') or 80
@@ -118,6 +122,11 @@ def _capture_one_impl(
         username=camera_info.get('username') or 'admin',
         password=camera_info.get('password', ''),
         camera_type=camera_type,
+        channel_no=(
+            camera_info.get('channel_no') or None
+            if camera_type == 'hik'
+            else None
+        ),
         onvif_port=int(camera_info.get('onvif_port') or camera_info.get('port') or 80),
         folder_path=folder_path,
         is_water_mark=is_water_mark,
@@ -360,6 +369,59 @@ def capture_cameras(
         cameras,
         csv_file,
         camera_type,
+        folder_path=folder_path,
+        is_water_mark=is_water_mark,
+        max_workers=max_workers,
+        watermark_style=watermark_style,
+    )
+
+
+def expand_hikvision_channels(cameras, start_channel_no, end_channel_no):
+    """Create one capture record per Hikvision recorder channel."""
+    try:
+        start_channel_no = int(start_channel_no)
+        end_channel_no = int(end_channel_no)
+    except (TypeError, ValueError) as error:
+        raise ValueError("通道起止号必须是整数") from error
+    if start_channel_no < 1 or end_channel_no < start_channel_no:
+        raise ValueError("通道范围必须从大于 0 的起始通道开始，且结束通道不小于起始通道")
+
+    return [
+        {**camera, "channel_no": channel_no}
+        for camera in cameras
+        for channel_no in range(start_channel_no, end_channel_no + 1)
+    ]
+
+
+def expand_hikvision_channel_numbers(cameras, channel_numbers):
+    """Create capture records for an explicit set of recorder channels."""
+    try:
+        normalized_channels = sorted({int(channel) for channel in channel_numbers})
+    except (TypeError, ValueError) as error:
+        raise ValueError("录像机通道列表必须包含整数") from error
+    if not normalized_channels or normalized_channels[0] < 1:
+        raise ValueError("录像机通道列表不能为空且通道号必须大于 0")
+
+    return [
+        {**camera, "channel_no": channel_no}
+        for camera in cameras
+        for channel_no in normalized_channels
+    ]
+
+
+def capture_hikvision_recorder_channels(
+    cameras,
+    csv_file,
+    folder_path=None,
+    is_water_mark=True,
+    max_workers=1,
+    watermark_style=None,
+):
+    """Capture recorder channels sequentially using OpenCV's default RTSP transport."""
+    return _capture_camera_records(
+        cameras,
+        csv_file,
+        camera_type="hik",
         folder_path=folder_path,
         is_water_mark=is_water_mark,
         max_workers=max_workers,

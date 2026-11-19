@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @author: sunliguo
 @contact: QQ376440229
@@ -7,12 +6,10 @@
 """
 import csv
 import logging
-
-
 import os
 import time
 
-from utils.tool import is_port_open, gen_ip_password_from_csv
+from utils.tool import gen_ip_password_from_csv, is_port_open
 
 try:
     import cv2

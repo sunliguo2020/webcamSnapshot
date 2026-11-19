@@ -7,24 +7,22 @@ import errno
 import logging
 import os
 import time
+import tkinter as tk
 from functools import lru_cache
 from string import Formatter
-import tkinter as tk
 from urllib.parse import quote
 
-import numpy as np
-
-os.environ.setdefault(
-    "OPENCV_FFMPEG_CAPTURE_OPTIONS",
-    "rtsp_transport;tcp|stimeout;5000000|rw_timeout;5000000",
-)
-
 import cv2
+import numpy as np
+import requests
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from lib.OnvifClient import OnvifClient
 from utils.dahua_device_info import get_dahua_device_info
-from utils.hikvision_device_info import get_hikvision_device_info
+from utils.hikvision_device_info import (
+    get_hikvision_channel_snapshot,
+    get_hikvision_device_info,
+)
 from utils.tool import is_port_open
 from utils.watermark import normalize_watermark_style
 
@@ -110,6 +108,8 @@ class Camera:
             watermark_style=None,
             # 大华设备 HTTP 管理端口
             device_info_port=80,
+            # 海康录像机通道号（从 1 开始）
+            channel_no=None,
     ):
         """
         初始化摄像头
@@ -141,6 +141,11 @@ class Camera:
         self.is_water_mark = is_water_mark
         self.watermark_style = normalize_watermark_style(watermark_style)
         self.device_info_port = device_info_port
+        self.channel_no = (
+            int(channel_no) if channel_no not in (None, "") else None
+        )
+        if self.channel_no is not None and self.channel_no < 1:
+            raise ValueError("海康录像机通道号必须大于 0")
 
         # 截图的保存文件名是ip_password_camear_type_strftime.jpg
         self._file_name = file_name or None
@@ -191,6 +196,8 @@ class Camera:
         # 构造摄像头描述信息
         if self.camera_type == "computer":
             cam_desc = f"电脑摄像头（索引{self.cam_index}）"
+        elif self.camera_type == "hik" and self.channel_no is not None:
+            cam_desc = f"{self.ip} 通道{self.channel_no}"
         else:
             cam_desc = self.ip or "未指定IP的网络摄像头"
 
@@ -204,12 +211,18 @@ class Camera:
         timings = {}
         logger.debug("ip:%s开始截图", cam_desc)
         cam = None
+        recorder_channel = (
+            self.camera_type == "hik" and self.channel_no is not None
+        )
         try:
-            if self.camera_type != "computer" and not self.check_camera():
-                err_msg = f"{cam_desc} 554端口不可达/摄像头离线"
-                logger.debug(err_msg)
-                return -1, err_msg
-            timings[stage_name] = time.perf_counter() - stage_started
+            if self.camera_type != "computer" and not recorder_channel:
+                if not self.check_camera():
+                    err_msg = f"{cam_desc} 554端口不可达/摄像头离线"
+                    logger.debug(err_msg)
+                    return -1, err_msg
+                timings[stage_name] = time.perf_counter() - stage_started
+            elif self.camera_type == "computer":
+                timings[stage_name] = time.perf_counter() - stage_started
 
             stage_name = "准备流地址"
             stage_started = time.perf_counter()
@@ -261,70 +274,115 @@ class Camera:
                     if not ret:
                         raise RuntimeError("读取摄像头预热帧失败")
                 timings[stage_name] = time.perf_counter() - stage_started
-            else:
-                cam = cv2.VideoCapture(
-                    camera_path,
-                    cv2.CAP_FFMPEG,
-                    [
-                        cv2.CAP_PROP_OPEN_TIMEOUT_MSEC,
-                        self.VIDEO_OPEN_TIMEOUT_MS,
-                        cv2.CAP_PROP_READ_TIMEOUT_MSEC,
-                        self.VIDEO_READ_TIMEOUT_MS,
-                    ],
-                )
-            if not cam.isOpened():
-                open_elapsed = time.perf_counter() - stage_started
-                backend = (
-                    "FFMPEG"
-                    if self.camera_type != "computer"
-                    else "DirectShow/默认后端"
-                )
-                raise RuntimeError(
-                    "视频对象读取失败 "
-                    f"(backend={backend}, is_opened=False, "
-                    f"open_elapsed={open_elapsed:.3f}s, "
-                    f"open_timeout_ms={self.VIDEO_OPEN_TIMEOUT_MS})"
-                )
-            logger.debug("%s 摄像头打开成功", cam_desc)
-            timings[stage_name] = time.perf_counter() - stage_started
+            elif recorder_channel:
+                stage_name = "ISAPI通道快照"
+                stage_started = time.perf_counter()
+                try:
+                    snapshot = get_hikvision_channel_snapshot(
+                        self.ip,
+                        self.channel_no,
+                        self.username,
+                        self.password,
+                        port=self.device_info_port,
+                    )
+                    self.frame = cv2.imdecode(
+                        np.frombuffer(snapshot, dtype=np.uint8),
+                        cv2.IMREAD_COLOR,
+                    )
+                    if self.frame is None:
+                        raise ValueError("ISAPI 返回的数据不是有效图像")
+                    timings[stage_name] = time.perf_counter() - stage_started
+                except (
+                    cv2.error,
+                    PermissionError,
+                    requests.RequestException,
+                    ValueError,
+                ) as snapshot_error:
+                    logger.warning(
+                        "%s ISAPI 快照失败，回退 RTSP：%s",
+                        cam_desc,
+                        snapshot_error,
+                    )
+                    stage_name = "RTSP端口检测"
+                    stage_started = time.perf_counter()
+                    if not self.check_camera():
+                        raise RuntimeError(
+                            f"ISAPI 通道快照失败：{snapshot_error}；"
+                            "RTSP 554 端口不可达"
+                        ) from snapshot_error
+                    timings[stage_name] = time.perf_counter() - stage_started
 
-            stage_name = "读取首帧"
-            stage_started = time.perf_counter()
-            ret, self.frame = cam.read()
-            if not ret or self.frame is None:
-                read_elapsed = time.perf_counter() - stage_started
-                is_opened = cam.isOpened()
-                backend = cam.getBackendName() if is_opened else "closed"
-                width = cam.get(cv2.CAP_PROP_FRAME_WIDTH)
-                height = cam.get(cv2.CAP_PROP_FRAME_HEIGHT)
-                fps = cam.get(cv2.CAP_PROP_FPS)
-                fourcc = int(cam.get(cv2.CAP_PROP_FOURCC))
-                codec = "".join(
-                    chr((fourcc >> (8 * index)) & 0xFF)
-                    for index in range(4)
-                ).strip("\x00 ")
-                if not codec or not codec.isprintable():
-                    codec = f"0x{fourcc:08x}" if fourcc else "unknown"
-                diagnostics = (
-                    f"ret={ret}, frame_is_none={self.frame is None}, "
-                    f"is_opened={is_opened}, backend={backend}, "
-                    f"stream_size={width:.0f}x{height:.0f}, fps={fps:.2f}, "
-                    f"fourcc={codec}, "
-                    f"open_elapsed={timings.get(open_stage_name, 0.0):.3f}s, "
-                    f"read_elapsed={read_elapsed:.3f}s, "
-                    f"open_timeout_ms={self.VIDEO_OPEN_TIMEOUT_MS}, "
-                    f"read_timeout_ms={self.VIDEO_READ_TIMEOUT_MS}"
-                )
-                logger.warning(
-                    "读取摄像头首帧失败诊断 IP=%s 类型=%s %s",
-                    cam_desc,
-                    self.camera_type,
-                    diagnostics,
-                )
-                raise RuntimeError(
-                    f"读取摄像头桢数据失败，画面为空 ({diagnostics})"
-                )
-            timings[stage_name] = time.perf_counter() - stage_started
+                    stage_name = open_stage_name
+                    stage_started = time.perf_counter()
+                    cam = self._open_video_stream(camera_path)
+                    if cam is None or not cam.isOpened():
+                        if cam is not None:
+                            cam.release()
+                            cam = None
+                        raise RuntimeError(
+                            f"ISAPI 通道快照失败：{snapshot_error}；"
+                            "RTSP 视频流也无法打开"
+                        ) from snapshot_error
+                    timings[stage_name] = time.perf_counter() - stage_started
+            else:
+                cam = self._open_video_stream(camera_path)
+            if cam is not None:
+                if not cam.isOpened():
+                    open_elapsed = time.perf_counter() - stage_started
+                    backend = (
+                        "FFMPEG"
+                        if self.camera_type != "computer"
+                        else "DirectShow/默认后端"
+                    )
+                    raise RuntimeError(
+                        "视频对象读取失败 "
+                        f"(backend={backend}, is_opened=False, "
+                        f"open_elapsed={open_elapsed:.3f}s, "
+                        f"open_timeout_ms={self.VIDEO_OPEN_TIMEOUT_MS})"
+                    )
+                logger.debug("%s 摄像头打开成功", cam_desc)
+                timings[stage_name] = time.perf_counter() - stage_started
+            else:
+                logger.debug("%s ISAPI 通道快照获取成功", cam_desc)
+
+            if cam is not None:
+                stage_name = "读取首帧"
+                stage_started = time.perf_counter()
+                ret, self.frame = cam.read()
+                if not ret or self.frame is None:
+                    read_elapsed = time.perf_counter() - stage_started
+                    is_opened = cam.isOpened()
+                    backend = cam.getBackendName() if is_opened else "closed"
+                    width = cam.get(cv2.CAP_PROP_FRAME_WIDTH)
+                    height = cam.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                    fps = cam.get(cv2.CAP_PROP_FPS)
+                    fourcc = int(cam.get(cv2.CAP_PROP_FOURCC))
+                    codec = "".join(
+                        chr((fourcc >> (8 * index)) & 0xFF)
+                        for index in range(4)
+                    ).strip("\x00 ")
+                    if not codec or not codec.isprintable():
+                        codec = f"0x{fourcc:08x}" if fourcc else "unknown"
+                    diagnostics = (
+                        f"ret={ret}, frame_is_none={self.frame is None}, "
+                        f"is_opened={is_opened}, backend={backend}, "
+                        f"stream_size={width:.0f}x{height:.0f}, fps={fps:.2f}, "
+                        f"fourcc={codec}, "
+                        f"open_elapsed={timings.get(open_stage_name, 0.0):.3f}s, "
+                        f"read_elapsed={read_elapsed:.3f}s, "
+                        f"open_timeout_ms={self.VIDEO_OPEN_TIMEOUT_MS}, "
+                        f"read_timeout_ms={self.VIDEO_READ_TIMEOUT_MS}"
+                    )
+                    logger.warning(
+                        "读取摄像头首帧失败诊断 IP=%s 类型=%s %s",
+                        cam_desc,
+                        self.camera_type,
+                        diagnostics,
+                    )
+                    raise RuntimeError(
+                        f"读取摄像头桢数据失败，画面为空 ({diagnostics})"
+                    )
+                timings[stage_name] = time.perf_counter() - stage_started
 
             if self.is_water_mark:
                 stage_name = "添加水印"
@@ -377,6 +435,29 @@ class Camera:
                 self.camera_type,
                 stage_details,
             )
+
+    def _open_video_stream(self, camera_path):
+        """Open Hikvision recorder streams like the legacy capture path first."""
+        if self.camera_type == "hik" and self.channel_no is not None:
+            cam = cv2.VideoCapture(camera_path)
+            if cam.isOpened():
+                return cam
+            cam.release()
+            logger.warning(
+                "%s 默认视频后端打开失败，回退到 FFmpeg",
+                f"{self.ip} 通道{self.channel_no}",
+            )
+
+        return cv2.VideoCapture(
+            camera_path,
+            cv2.CAP_FFMPEG,
+            [
+                cv2.CAP_PROP_OPEN_TIMEOUT_MSEC,
+                self.VIDEO_OPEN_TIMEOUT_MS,
+                cv2.CAP_PROP_READ_TIMEOUT_MSEC,
+                self.VIDEO_READ_TIMEOUT_MS,
+            ],
+        )
 
     def check_camera(self) -> bool:
         """
@@ -679,6 +760,11 @@ class Camera:
             )
 
         if self.camera_type == "hik":
+            if self.channel_no is not None:
+                return (
+                    f"rtsp://{credentials}{self.ip}:554/"
+                    f"Streaming/Channels/{self.channel_no}01"
+                )
             return f"rtsp://{credentials}{self.ip}:554/h264/ch34/main/av_stream"
 
         if self.camera_type == "onvif":
@@ -724,6 +810,11 @@ class Camera:
         elif self.camera_type == "computer":
             # 格式：computer_索引_时间戳.jpg
             return f"computer_{self.cam_index}_{time.strftime('%Y%m%d%H%M%S', time.localtime())}.jpg"
+        elif self.camera_type == "hik" and self.channel_no is not None:
+            return (
+                f"{self.ip}_hik_channel{self.channel_no}_"
+                f"{time.strftime('%Y%m%d%H%M%S', time.localtime())}.jpg"
+            )
         else:
             return (
                 f"{self.ip}_{self.password}_{self.camera_type}_"

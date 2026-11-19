@@ -107,6 +107,90 @@ def get_hikvision_device_info(ip, username, password, port=80):
     }
 
 
+def get_hikvision_channel_snapshot(
+    ip,
+    channel_no,
+    username,
+    password,
+    port=80,
+):
+    """Fetch a recorder channel JPEG through Hikvision ISAPI."""
+    port = int(port)
+    if not 1 <= port <= 65535:
+        raise ValueError("海康 HTTP 端口必须在 1 到 65535 之间")
+    try:
+        channel_no = int(channel_no)
+    except (TypeError, ValueError) as error:
+        raise ValueError("海康录像机通道号必须是整数") from error
+    if channel_no < 1:
+        raise ValueError("海康录像机通道号必须大于 0")
+
+    url = (
+        f"http://{ip}:{port}/ISAPI/Streaming/channels/"
+        f"{channel_no}01/picture"
+    )
+    for auth in (
+        HTTPDigestAuth(username, password),
+        HTTPBasicAuth(username, password),
+    ):
+        response = requests.get(url, auth=auth, timeout=REQUEST_TIMEOUT)
+        if response.status_code == 401:
+            continue
+        response.raise_for_status()
+        if not response.content:
+            raise ValueError("海康录像机返回了空快照")
+        return response.content
+    raise PermissionError("海康录像机通道快照接口认证失败")
+
+
+def get_hikvision_streaming_channel_numbers(
+    ip,
+    username,
+    password,
+    port=80,
+):
+    """Return recorder channel numbers advertised by the ISAPI stream list."""
+    port = int(port)
+    if not 1 <= port <= 65535:
+        raise ValueError("海康 HTTP 端口必须在 1 到 65535 之间")
+
+    response_text = _request_text(
+        ip,
+        port,
+        "/ISAPI/Streaming/channels",
+        username,
+        password,
+    )
+    root = _parse_xml(response_text)
+    channel_numbers = set()
+    for stream in root.iter():
+        if stream.tag.rsplit("}", 1)[-1].lower() != "streamingchannel":
+            continue
+        stream_id = next(
+            (
+                element.text.strip()
+                for element in stream.iter()
+                if element.tag.rsplit("}", 1)[-1].lower() == "id"
+                and element.text
+                and element.text.strip()
+            ),
+            None,
+        )
+        if stream_id is None:
+            continue
+        try:
+            stream_id = int(stream_id)
+        except ValueError:
+            continue
+        channel_no, stream_type = divmod(stream_id, 100)
+        if channel_no > 0 and stream_type > 0:
+            channel_numbers.add(channel_no)
+
+    if not channel_numbers:
+        raise ValueError("录像机未返回可识别的流通道列表")
+    return sorted(channel_numbers)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="读取海康摄像头型号、序列号和 MAC 地址"
