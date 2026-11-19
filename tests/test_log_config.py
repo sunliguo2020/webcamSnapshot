@@ -1,19 +1,11 @@
 import os
 import unittest
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
-from mylogger.setlogger import configure_logger
 from utils.log_config import DailyArchiveFileHandler
 
 
 class LoggerConfigurationTests(unittest.TestCase):
-    @patch("mylogger.setlogger.setup_logging")
-    def test_compatibility_configurer_uses_shared_setup(self, setup_logging):
-        configure_logger()
-
-        setup_logging.assert_called_once_with()
-
     def test_daily_archive_name_and_retention(self):
         with TemporaryDirectory() as directory:
             log_file = os.path.join(directory, "camera.log")

@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 
@@ -12,7 +13,10 @@ project_root_dir = os.path.dirname(current_script_dir)
 sys.path.append(project_root_dir)
 
 from OnvifClient import OnvifClient
-from mylogger import logger
+
+from utils.log_config import setup_logging
+
+logger = logging.getLogger("camera_logger")
 
 
 def test_client(ip='192.168.1.64',
@@ -91,6 +95,7 @@ def test_find():
 
 
 if __name__ == '__main__':
+    setup_logging()
     logger.debug("ONVIFClientManager")
 
     test_find()
