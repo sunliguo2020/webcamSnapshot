@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from lib.OnvifClient import OnvifClient
 from utils.dahua_device_info import get_dahua_device_info
+from utils.dahua_snapshot import get_dahua_snapshot
 from utils.hikvision_device_info import (
     get_hikvision_channel_snapshot,
     get_hikvision_device_info,
@@ -110,6 +111,8 @@ class Camera:
             device_info_port=80,
             # 海康录像机通道号（从 1 开始）
             channel_no=None,
+            force_timeout_options=False,
+            use_dahua_cgi_snapshot=False,
     ):
         """
         初始化摄像头
@@ -144,6 +147,8 @@ class Camera:
         self.channel_no = (
             int(channel_no) if channel_no not in (None, "") else None
         )
+        self.force_timeout_options = force_timeout_options
+        self.use_dahua_cgi_snapshot = use_dahua_cgi_snapshot
         if self.channel_no is not None and self.channel_no < 1:
             raise ValueError("海康录像机通道号必须大于 0")
 
@@ -201,36 +206,45 @@ class Camera:
         else:
             cam_desc = self.ip or "未指定IP的网络摄像头"
 
-        capture_started = time.perf_counter()
-        stage_started = capture_started
-        stage_name = (
-            "RTSP端口检测"
-            if self.camera_type != "computer"
-            else "本地设备检测"
-        )
-        timings = {}
-        logger.debug("ip:%s开始截图", cam_desc)
-        cam = None
         recorder_channel = (
             self.camera_type == "hik" and self.channel_no is not None
         )
+        dahua_cgi_snapshot = (
+            self.camera_type == "dahua"
+            and getattr(self, "use_dahua_cgi_snapshot", False)
+        )
+        capture_started = time.perf_counter()
+        stage_started = capture_started
+        if dahua_cgi_snapshot:
+            stage_name = "HTTP CGI快照"
+        elif self.camera_type != "computer":
+            stage_name = "RTSP端口检测"
+        else:
+            stage_name = "本地设备检测"
+        timings = {}
+        logger.debug("ip:%s开始截图", cam_desc)
+        cam = None
         try:
-            if self.camera_type != "computer" and not recorder_channel:
+            if (
+                self.camera_type != "computer"
+                and not recorder_channel
+                and not dahua_cgi_snapshot
+            ):
                 if not self.check_camera():
                     err_msg = f"{cam_desc} 554端口不可达/摄像头离线"
                     logger.debug(err_msg)
                     return -1, err_msg
                 timings[stage_name] = time.perf_counter() - stage_started
-            elif self.camera_type == "computer":
+            elif self.camera_type == "computer" or dahua_cgi_snapshot:
                 timings[stage_name] = time.perf_counter() - stage_started
 
-            stage_name = "准备流地址"
+            stage_name = "准备截图地址"
             stage_started = time.perf_counter()
             if self.file_full_path is None:
                 self.file_full_path = os.path.join(self.folder_path, self.file_name)
 
             # 获取摄像头视频帧
-            camera_path = self.camera_path
+            camera_path = None if dahua_cgi_snapshot else self.camera_path
             timings[stage_name] = time.perf_counter() - stage_started
 
             open_stage_name = (
@@ -324,6 +338,23 @@ class Camera:
                             "RTSP 视频流也无法打开"
                         ) from snapshot_error
                     timings[stage_name] = time.perf_counter() - stage_started
+            elif dahua_cgi_snapshot:
+                stage_name = "HTTP CGI快照"
+                stage_started = time.perf_counter()
+                snapshot = get_dahua_snapshot(
+                    self.ip,
+                    self.username,
+                    self.password,
+                    port=self.device_info_port,
+                    timeout=(10, 20),
+                )
+                self.frame = cv2.imdecode(
+                    np.frombuffer(snapshot, dtype=np.uint8),
+                    cv2.IMREAD_COLOR,
+                )
+                if self.frame is None:
+                    raise ValueError("大华快照接口返回的数据不是有效图像")
+                timings[stage_name] = time.perf_counter() - stage_started
             else:
                 cam = self._open_video_stream(camera_path)
             if cam is not None:
@@ -342,8 +373,10 @@ class Camera:
                     )
                 logger.debug("%s 摄像头打开成功", cam_desc)
                 timings[stage_name] = time.perf_counter() - stage_started
-            else:
+            elif recorder_channel:
                 logger.debug("%s ISAPI 通道快照获取成功", cam_desc)
+            elif dahua_cgi_snapshot:
+                logger.debug("%s 大华 HTTP CGI 快照获取成功", cam_desc)
 
             if cam is not None:
                 stage_name = "读取首帧"
@@ -438,7 +471,11 @@ class Camera:
 
     def _open_video_stream(self, camera_path):
         """Open Hikvision recorder streams like the legacy capture path first."""
-        if self.camera_type == "hik" and self.channel_no is not None:
+        if (
+            self.camera_type == "hik"
+            and self.channel_no is not None
+            and not getattr(self, "force_timeout_options", False)
+        ):
             cam = cv2.VideoCapture(camera_path)
             if cam.isOpened():
                 return cam

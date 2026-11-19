@@ -20,6 +20,10 @@ from utils.tool import get_cam_list
 
 logger = logging.getLogger('camera_logger')
 DEFAULT_MAX_WORKERS = 8
+RETRY_PORT_CHECK_TIMEOUT_SECONDS = 2.0
+RETRY_VIDEO_OPEN_TIMEOUT_MS = 10000
+RETRY_VIDEO_READ_TIMEOUT_MS = 15000
+RETRY_ONVIF_TIMEOUT = (10, 20)
 
 
 def batch_capture_computer_cameras(folder_path=None,
@@ -62,7 +66,7 @@ def batch_capture_computer_cameras(folder_path=None,
 
 def _capture_one_impl(
     index, camera_info, camera_type, folder_path, is_water_mark, timings=None,
-    watermark_style=None,
+    watermark_style=None, retry=False,
 ):
     """Capture one camera and return a normalized result tuple."""
     ip = str(camera_info.get('ip', 'unknown'))
@@ -82,7 +86,12 @@ def _capture_one_impl(
             folder_path=folder_path,
         )
         try:
-            file_path = client.Snapshot(file_dir=folder_path)
+            if retry:
+                file_path = client.Snapshot(
+                    file_dir=folder_path, timeout=RETRY_ONVIF_TIMEOUT
+                )
+            else:
+                file_path = client.Snapshot(file_dir=folder_path)
         finally:
             if timings is not None:
                 timings.update(client.last_timings)
@@ -136,7 +145,13 @@ def _capture_one_impl(
             or camera_info.get('web_port')
             or 80
         ),
+        force_timeout_options=retry,
+        use_dahua_cgi_snapshot=retry and camera_type == "dahua",
     )
+    if retry:
+        camera.PORT_CHECK_TIMEOUT = RETRY_PORT_CHECK_TIMEOUT_SECONDS
+        camera.VIDEO_OPEN_TIMEOUT_MS = RETRY_VIDEO_OPEN_TIMEOUT_MS
+        camera.VIDEO_READ_TIMEOUT_MS = RETRY_VIDEO_READ_TIMEOUT_MS
     status, result = camera.capture()
     if timings is not None:
         timings.update(camera.last_timings)
@@ -145,13 +160,15 @@ def _capture_one_impl(
 
 def _capture_one(
     index, camera_info, camera_type, folder_path, is_water_mark,
-    watermark_style=None,
+    watermark_style=None, retry=False,
 ):
     """Capture one camera and include its elapsed-time measurements."""
     pause_event.wait()
     capture_started = time.perf_counter()
     ip = str(camera_info.get('ip', 'unknown'))
     timings = {}
+    if retry:
+        logger.info("开始第二次截图 IP: %s", ip)
     try:
         result = _capture_one_impl(
             index,
@@ -161,6 +178,7 @@ def _capture_one(
             is_water_mark,
             timings,
             watermark_style,
+            retry,
         )
     except Exception as error:
         logger.exception("截图任务异常 IP: %s", ip)
@@ -263,12 +281,74 @@ def _capture_camera_records(
                 phase_seconds[phase] = phase_seconds.get(phase, 0.0) + elapsed
                 phase_counts[phase] = phase_counts.get(phase, 0) + 1
             if status == 1:
-                statistics['success'] += 1
                 logger.info("截图成功 IP: %s", ip)
             else:
-                statistics['failed'] += 1
-                statistics['failed_ips'].append((ip, info))
-                logger.warning("截图失败 IP: %s - %s", ip, info)
+                logger.info("首次截图失败，待重试 IP: %s - %s", ip, info)
+    failed_indices = [
+        index for index, result in enumerate(results)
+        if result is not None and result[0] != 1
+    ]
+    if failed_indices:
+        logger.info("首轮截图失败 %d 台，开始逐台重试", len(failed_indices))
+        retry_worker_count = max(
+            1, min(int(max_workers), len(failed_indices))
+        )
+        with ThreadPoolExecutor(max_workers=retry_worker_count) as executor:
+            futures = {
+                executor.submit(
+                    _capture_one,
+                    index,
+                    cameras[index],
+                    camera_type,
+                    folder_path,
+                    is_water_mark,
+                    watermark_style,
+                    True,
+                ): index
+                for index in failed_indices
+            }
+
+            for future in as_completed(futures):
+                index = futures[future]
+                camera_info = cameras[index]
+                ip = str(camera_info.get('ip', 'unknown'))
+                try:
+                    (
+                        result_index,
+                        ip,
+                        status,
+                        info,
+                        camera_elapsed,
+                        camera_timings,
+                    ) = future.result()
+                except Exception as error:
+                    result_index, status, info = index, 0, str(error)
+                    camera_elapsed, camera_timings = 0.0, {}
+                    logger.exception("二次截图任务异常 IP: %s", ip)
+
+                results[result_index] = (status, info)
+                if camera_elapsed:
+                    statistics['timing']['camera_seconds'].append(
+                        camera_elapsed
+                    )
+                for phase, elapsed in camera_timings.items():
+                    phase_seconds = statistics['timing']['phase_seconds']
+                    phase_counts = statistics['timing']['phase_counts']
+                    phase_seconds[phase] = (
+                        phase_seconds.get(phase, 0.0) + elapsed
+                    )
+                    phase_counts[phase] = phase_counts.get(phase, 0) + 1
+                if status == 1:
+                    logger.info("二次截图成功 IP: %s", ip)
+
+    for index, (status, info) in enumerate(results):
+        ip = str(cameras[index].get('ip', 'unknown'))
+        if status == 1:
+            statistics['success'] += 1
+        else:
+            statistics['failed'] += 1
+            statistics['failed_ips'].append((ip, info))
+            logger.warning("截图失败 IP: %s - %s", ip, info)
     statistics['timing']['capture_wall_seconds'] = (
         time.perf_counter() - capture_started
     )

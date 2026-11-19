@@ -148,7 +148,7 @@ class OnvifClient(object):
 
         return file_path
 
-    def Snapshot(self, file_dir=None):
+    def Snapshot(self, file_dir=None, timeout=(5, 10)):
         """
         截图 拍摄快照
         :param file_dir: 文件保存路径，如果为空，则使用默认路径
@@ -197,7 +197,7 @@ class OnvifClient(object):
             response = requests.get(
                 res.Uri,
                 auth=HTTPDigestAuth(self.username, self.password),
-                timeout=(5, 10),
+                timeout=timeout,
             )
             timings[stage_name] = time.perf_counter() - stage_started
 
