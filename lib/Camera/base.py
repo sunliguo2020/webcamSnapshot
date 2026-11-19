@@ -24,6 +24,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from lib.OnvifClient import OnvifClient
 from utils.dahua_device_info import get_dahua_device_info
+from utils.hikvision_device_info import get_hikvision_device_info
 from utils.tool import is_port_open
 from utils.watermark import normalize_watermark_style
 
@@ -438,9 +439,17 @@ class Camera:
             if field_name
         }
         device_info_fields = {"model", "mac", "serial", "serial_number"}
-        if self.camera_type == "dahua" and template_fields & device_info_fields:
+        if (
+            self.camera_type in {"dahua", "hik"}
+            and template_fields & device_info_fields
+        ):
             try:
-                info = get_dahua_device_info(
+                get_device_info = (
+                    get_dahua_device_info
+                    if self.camera_type == "dahua"
+                    else get_hikvision_device_info
+                )
+                info = get_device_info(
                     self.ip,
                     self.username,
                     self.password,
@@ -448,8 +457,9 @@ class Camera:
                 )
             except (TypeError, ValueError) as error:
                 logger.warning(
-                    "读取大华设备信息配置失败 IP=%s：%s",
+                    "读取设备信息配置失败 IP=%s 类型=%s：%s",
                     self.ip,
+                    self.camera_type,
                     error,
                 )
                 info = {}

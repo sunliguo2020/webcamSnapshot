@@ -1,16 +1,15 @@
-# -*- coding: utf-8 -*-
 """Tkinter GUI for discovering and configuring Hikvision SADP devices."""
 
 import argparse
-from ctypes import byref
 import ipaddress
 import json
-from pathlib import Path
 import queue
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
+from ctypes import byref
 from datetime import datetime
+from pathlib import Path
+from tkinter import messagebox, ttk
 
 # Import SADP SDK and CLI modules, handling relative imports for package context
 # This allows the script to be run both as a standalone module and as part of a package.
@@ -27,7 +26,6 @@ if __package__:
         _decode_field,
     )
 else:
-    import sadp as sdk
     from sadp_cli import (
         SADP_ADD,
         SADP_DEC,
@@ -37,6 +35,8 @@ else:
         SADPSearchTool,
         _decode_field,
     )
+
+    import sadp as sdk
 
 
 class SADPGui:

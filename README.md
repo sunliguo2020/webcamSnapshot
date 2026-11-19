@@ -19,8 +19,18 @@
 - 查看任务结果，并打开截图目录
 
 水印样式会自动保存；运行源码时保存在 `config/watermark.json`，打包版保存在用户的 `%APPDATA%\webcamSnapshot` 目录。
-水印设置中可逐行编辑和删除文字，也可从常用数据列表添加文件名、IP、时间、摄像头信息、型号、MAC 或序列号。每行支持 `{filename}`、`{ip}`、`{time}`、`{camera_type}`、`{camera_index}`、`{model}`、`{mac}`、`{serial_number}` 或 `{serial}` 等模板字段；仅在模板使用设备型号、MAC 或序列号时访问大华设备管理接口，无法获取的字段显示为 `N/A`。
+水印设置中可逐行编辑和删除文字，也可从常用数据列表添加文件名、IP、时间、摄像头信息、型号、MAC 或序列号。每行支持 `{filename}`、`{ip}`、`{time}`、`{camera_type}`、`{camera_index}`、`{model}`、`{mac}`、`{serial_number}` 或 `{serial}` 等模板字段；仅在模板使用设备型号、MAC 或序列号时访问大华或海康设备管理接口，无法获取的字段显示为 `N/A`。
 中文水印使用运行电脑安装的微软雅黑、黑体或宋体字体。
+
+## 读取海康设备信息
+
+可在项目根目录运行以下命令读取海康摄像头的型号、序列号和 MAC 地址。脚本会提示输入密码，避免将密码写入命令行：
+
+```bash
+python -m utils.hikvision_device_info 192.168.1.100 --username admin --port 80
+```
+
+`--username` 默认是 `admin`，`--port` 默认是 `80`。脚本使用海康 ISAPI 接口，只读取设备信息。
 
 运行 `python make.py` 后可选择生成单文件版或目录版。发布目录版时，请将 `dist` 下带有“目录版”后缀的整个文件夹打包并在目标电脑解压，不要只复制其中的 EXE。
 
@@ -36,7 +46,7 @@ python main.py
 ## 摄像头 CSV 格式
 
 网络摄像头列表使用 CSV 文件。首行必须包含 `ip` 和 `password` 两列，列名不区分大小写；其他列可按需添加。
-大华设备的 HTTP 管理端口默认为 `80`；如设备使用其他端口，可增加 `http_port` 列供水印信息读取使用。
+设备的 HTTP 管理端口默认为 `80`；如设备使用其他端口，可增加 `http_port` 列供水印设备信息读取使用。
 
 ```csv
 ip,password
