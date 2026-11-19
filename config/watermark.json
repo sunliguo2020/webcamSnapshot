@@ -1,5 +1,5 @@
 {
-  "text": "{filename}\nIP: {ip}\n类型: {camera_type}\n型号: {model}\nMAC: {mac}\n序列号: {serial_number}",
+  "text": "{filename}\nIP: {ip}\n型号: {model}\nMAC: {mac}\n序列号: {serial_number}",
   "font": "FONT_HERSHEY_SIMPLEX",
   "font_scale": 1.0,
   "color": "#FFFFFF",

@@ -13,10 +13,10 @@ import tkinter as tk
 from tkinter import DISABLED, NORMAL, filedialog, messagebox, ttk
 
 import requests
-from PIL import Image, ImageTk
 
 # 导入抽离的工具类
 from gui.csv_preview import show_csv_preview
+from gui.image_preview import show_preview_image
 from gui.watermark_settings import edit_watermark_style
 from utils.capture_pool import (
     batch_capture_computer_cameras,
@@ -124,67 +124,6 @@ class CameraSnapshotApp:
         label.grid(row=row, column=column, sticky="w", padx=(20, 5), pady=8)
         return label
 
-    # ====================== 预览图片弹窗 ======================
-
-    def show_preview_image(self, image_path):
-        """在新窗口中显示截图预览"""
-        try:
-            img = Image.open(image_path)
-            # 计算弹窗大小，最大 800x600
-            win_width = min(img.width + 40, 800)
-            win_height = min(img.height + 80, 600)
-
-            preview_win = tk.Toplevel(self.root)
-            preview_win.title(f"截图预览 - {os.path.basename(image_path)}")
-            preview_win.geometry(f"{win_width}x{win_height}+400+200")
-            preview_win.configure(bg=self.COLOR_BG)
-            preview_win.resizable(True, True)
-
-            # 图片显示区域
-            canvas_frame = tk.Frame(preview_win, bg=self.COLOR_FRAME_BG,
-                                    relief="solid", bd=1)
-            canvas_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-            canvas = tk.Canvas(canvas_frame, bg="#FAFAFA",
-                               highlightthickness=0)
-            canvas.pack(fill="both", expand=True, padx=5, pady=5)
-
-            # 等比例缩放显示
-            display_width = win_width - 60
-            display_height = win_height - 120
-            img_copy = img.copy()
-            img_copy.thumbnail((display_width, display_height),
-                               Image.Resampling.LANCZOS)
-            photo = ImageTk.PhotoImage(img_copy)
-            canvas.delete("all")
-            x = (display_width - img_copy.width) // 2
-            y = (display_height - img_copy.height) // 2
-            canvas.create_image(max(x, 0), max(y, 0), anchor="nw",
-                                image=photo)
-            canvas.image = photo  # 保留引用
-
-            # 底部信息
-            info_frame = tk.Frame(preview_win, bg=self.COLOR_BG)
-            info_frame.pack(fill="x", padx=10, pady=(0, 10))
-
-            tk.Label(
-                info_frame,
-                text=f"{os.path.basename(image_path)}  ({img.width}x{img.height})",
-                font=("微软雅黑", 9), bg=self.COLOR_BG, fg="#555555"
-            ).pack(side="left")
-
-            tk.Button(
-                info_frame, text="关闭",
-                font=self.FONT_BUTTON,
-                bg=self.COLOR_BUTTON, fg=self.COLOR_BUTTON_TEXT,
-                relief="flat", bd=0, cursor="hand2",
-                padx=15, pady=3,
-                command=preview_win.destroy
-            ).pack(side="right")
-
-        except Exception as e:
-            logger.error(f"预览图片失败: {e}")
-
     # ====================== CSV 预览功能 ======================
 
     def _preview_csv(self):
@@ -232,7 +171,10 @@ class CameraSnapshotApp:
                 status, info = result
                 if status == 1:
                     logger.info(f"临时截图成功: {info}")
-                    gui_queue.put(("call", (lambda: self.show_preview_image(info),)))
+                    gui_queue.put((
+                        "call",
+                        (lambda: show_preview_image(self.root, info),),
+                    ))
                 else:
                     logger.warning(f"临时截图失败: {info}")
                     gui_queue.put(("show_warning", ("截图失败", str(info))))
@@ -735,7 +677,12 @@ class CameraSnapshotApp:
                 for cam_index, (status, file_path) in result.items():
                     if status == 1:
                         logger.debug(f"显示摄像头{cam_index}的截图:{file_path}")
-                        gui_queue.put(("call", (lambda fp=file_path: self.show_preview_image(fp),)))
+                        gui_queue.put((
+                            "call",
+                            (lambda fp=file_path: show_preview_image(
+                                self.root, fp
+                            ),),
+                        ))
                 return
 
             # 网络摄像头截图
@@ -842,5 +789,3 @@ if __name__ == '__main__':
     setup_logging()
     app = CameraSnapshotApp()
     app.run()
-
- 

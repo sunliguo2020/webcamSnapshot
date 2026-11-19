@@ -47,7 +47,8 @@ class DailyArchiveFileHandler(TimedRotatingFileHandler):
 
 def setup_logging() -> logging.Logger:
     """
-    初始化应用日志配置。
+    配置日志记录器，返回一个 logger 实例
+    日志文件将按天轮转，并保留最近 30 天的日志
     日志文件始终创建在 exe 所在目录（或当前工作目录）的 logs/ 下
     """
     # 获取 exe 所在目录（而不是当前工作目录）
