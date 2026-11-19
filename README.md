@@ -74,6 +74,12 @@ ip,password
 
 ## 打包为 EXE
 
+首次打包前请先安装项目依赖（其中包含 PyInstaller）：
+
+```bash
+python -m pip install -r requirements.txt
+```
+
 在项目根目录运行：
 
 ```bash

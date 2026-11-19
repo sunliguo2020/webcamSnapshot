@@ -8,8 +8,19 @@ import os
 import subprocess
 import sys
 import time
+from importlib.util import find_spec
 
 project_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+if find_spec("PyInstaller") is None:
+    print(
+        "缺少打包依赖 PyInstaller。请先运行："
+        f'"{sys.executable}" -m pip install -r '
+        f'"{os.path.join(project_dir, "requirements.txt")}"'
+    )
+    raise SystemExit(1)
+
 
 def select_build_mode():
     """Prompt for a PyInstaller build mode."""
@@ -51,6 +62,3 @@ subprocess.run(
     cwd=project_dir,
     check=True,
 )
-
-# 如果需要直接打包 capture_tk.py，取消下面的注释
-# os.system(f'pyinstaller -F -w -i cam_capture.ico capture_tk.py -n 摄像头批量截图_{time.strftime("%Y%m%d", time.localtime())}')
