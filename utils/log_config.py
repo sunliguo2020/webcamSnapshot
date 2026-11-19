@@ -8,7 +8,41 @@
 """
 import logging.config
 import os
+import re
 import sys
+from logging.handlers import TimedRotatingFileHandler
+
+
+class DailyArchiveFileHandler(TimedRotatingFileHandler):
+    """Rotate daily logs to camera-YYYY-MM-DD.log and retain old archives."""
+
+    def rotation_filename(self, default_name):
+        prefix = f"{self.baseFilename}."
+        if not default_name.startswith(prefix):
+            return default_name
+
+        date_suffix = default_name[len(prefix):]
+        filename, extension = os.path.splitext(self.baseFilename)
+        return f"{filename}-{date_suffix}{extension}"
+
+    def getFilesToDelete(self):
+        if self.backupCount <= 0:
+            return []
+
+        directory, base_name = os.path.split(self.baseFilename)
+        filename, extension = os.path.splitext(base_name)
+        prefix = f"{filename}-"
+        archives = []
+        for entry in os.listdir(directory):
+            if not entry.startswith(prefix) or not entry.endswith(extension):
+                continue
+            date_suffix = entry[len(prefix):-len(extension)]
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_suffix):
+                archives.append(os.path.join(directory, entry))
+
+        archives.sort()
+        excess_count = len(archives) - self.backupCount
+        return archives[:excess_count] if excess_count > 0 else []
 
 
 def setup_logging() -> logging.Logger:
@@ -48,7 +82,7 @@ def setup_logging() -> logging.Logger:
                 'stream': 'ext://sys.stdout',
             },
             'fileHandler': {
-                'class': 'logging.handlers.TimedRotatingFileHandler',
+                'class': 'utils.log_config.DailyArchiveFileHandler',
                 'level': 'DEBUG',
                 'formatter': 'simpleFormatter',
                 'filename': log_file,
