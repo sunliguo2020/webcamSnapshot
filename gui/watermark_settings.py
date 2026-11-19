@@ -26,8 +26,8 @@ def edit_watermark_style(parent, style):
     """Show the modal style editor and return the saved style, if any."""
     dialog = tk.Toplevel(parent)
     dialog.title("水印样式设置")
-    dialog.geometry("760x700")
-    dialog.minsize(700, 620)
+    dialog.geometry("480x700")
+    dialog.minsize(460, 620)
     dialog.resizable(True, True)
     dialog.transient(parent)
     dialog.update_idletasks()
@@ -78,6 +78,7 @@ def edit_watermark_style(parent, style):
             "{camera_type}、{camera_index}、{model}、{mac}、"
             "{serial_number}、{serial}）"
         ),
+        wraplength=440,
     ).grid(
         row=0, column=0, columnspan=3, sticky="w", pady=(0, 4)
     )
@@ -203,7 +204,7 @@ def edit_watermark_style(parent, style):
         row=7, column=0, columnspan=3, sticky="w"
     )
     preview = tk.Canvas(
-        form, width=640, height=115, bg="#39465B",
+        form, width=400, height=115, bg="#39465B",
         highlightthickness=0
     )
     preview.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(4, 12))
@@ -253,7 +254,7 @@ def edit_watermark_style(parent, style):
             )
             return
 
-        width = max(640, preview.winfo_width())
+        width = max(1, preview.winfo_width())
         height = max(115, preview.winfo_height())
         margin = round(width * preview_style["margin"] / 100)
         vertical, horizontal = preview_style["position"].split("_")
