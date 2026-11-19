@@ -11,9 +11,7 @@ from onvif import ONVIFCamera, ONVIFError
 from requests.auth import HTTPDigestAuth
 from zeep.helpers import serialize_object
 from itertools import groupby
-from mylogger.setlogger import configure_logger
 
-configure_logger()
 logger = logging.getLogger("camera_logger")
 
 
