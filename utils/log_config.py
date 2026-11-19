@@ -64,7 +64,6 @@ def setup_logging() -> logging.Logger:
 
     log_file = os.path.join(logs_dir, 'camera.log')
 
-    # 直接使用 dictConfig 配置，避免 logging.conf 中相对路径的问题
     log_config = {
         'version': 1,
         'disable_existing_loggers': False,

@@ -39,8 +39,6 @@ subprocess.run(
         "-w",
         "-i",
         os.path.join(project_dir, "cam_capture.ico"),
-        "--add-data",
-        f'{os.path.join(project_dir, "logging.conf")};.',
         "--paths",
         project_dir,
         "-n",
